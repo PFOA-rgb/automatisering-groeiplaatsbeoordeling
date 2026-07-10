@@ -78,15 +78,26 @@ function renderInspectionList() {
     });
 }
 
-function resetCurrentForm(message = "Nieuw onderzoek") {
-  currentInspectionId = null;
-  form.reset();
+function clearPhotos() {
   photoData.photo1 = null;
   photoData.photo2 = null;
-  document.querySelector("#preview1").hidden = true;
-  document.querySelector("#preview1").removeAttribute("src");
-  document.querySelector("#preview2").hidden = true;
-  document.querySelector("#preview2").removeAttribute("src");
+
+  ["#photo1", "#photo2"].forEach(selector => {
+    document.querySelector(selector).value = "";
+  });
+
+  ["#preview1", "#preview2"].forEach(selector => {
+    const preview = document.querySelector(selector);
+    preview.hidden = true;
+    preview.removeAttribute("src");
+  });
+}
+
+function resetCurrentForm(message = "Nieuw onderzoek") {
+  currentInspectionId = null;
+  localStorage.removeItem(STORAGE_KEY);
+  form.reset();
+  clearPhotos();
   layersBody.innerHTML = "";
   addLayer();
   document.querySelector("#datum").valueAsDate = new Date();
@@ -713,11 +724,5 @@ if ("serviceWorker" in navigator) {
 renderInspectionList();
 
 if (!migrateSingleSavedInspection()) {
-  const inspections = loadInspections();
-
-  if (inspections.length) {
-    openInspection(inspections.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0].id);
-  } else {
-    resetCurrentForm("Nog niet opgeslagen");
-  }
+  resetCurrentForm(loadInspections().length ? "Kies een onderzoek of start nieuw" : "Nog niet opgeslagen");
 }

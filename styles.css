@@ -122,6 +122,17 @@ button.danger {
   align-items: center;
 }
 
+.manager-controls button,
+.manager-controls select {
+  min-height: 40px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.manager-controls button {
+  white-space: nowrap;
+}
+
 .steps {
   display: grid;
   grid-template-columns: repeat(5, minmax(115px, 1fr));
