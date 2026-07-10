@@ -347,6 +347,168 @@ importFile.addEventListener("change", () => {
   reader.readAsText(file);
 });
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatReportValue(value) {
+  if (Array.isArray(value)) return value.join(", ");
+  return value || "-";
+}
+
+function reportRow(label, value) {
+  return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(formatReportValue(value))}</td></tr>`;
+}
+
+function createReportHtml(data) {
+  const layers = data.bodemlagen?.length
+    ? data.bodemlagen.map(layer => `
+      <tr>
+        <td>${escapeHtml(layer.from)}</td>
+        <td>${escapeHtml(layer.to)}</td>
+        <td>${escapeHtml(layer.type)}</td>
+        <td>${escapeHtml(layer.note)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="4">Geen bodemlagen ingevuld</td></tr>`;
+
+  const photos = [data.fotos?.photo1, data.fotos?.photo2]
+    .filter(Boolean)
+    .map((src, index) => `
+      <figure>
+        <img src="${src}" alt="Situatiefoto ${index + 1}">
+        <figcaption>Situatiefoto ${index + 1}</figcaption>
+      </figure>
+    `).join("") || "<p>Geen foto's toegevoegd.</p>";
+
+  return `<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>Groeiplaatsbeoordeling rapport</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #1f2a1a; }
+    h1, h2 { color: #355021; }
+    h1 { margin-bottom: 0; }
+    .subtitle { color: #667060; margin-top: 4px; }
+    section { break-inside: avoid; margin-top: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #ccd5c6; padding: 8px; text-align: left; vertical-align: top; }
+    th { width: 34%; background: #e8efe3; }
+    .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    figure { margin: 0; break-inside: avoid; }
+    img { width: 100%; max-height: 360px; object-fit: contain; border: 1px solid #ccd5c6; }
+    figcaption { margin-top: 6px; color: #667060; }
+    @media print { body { margin: 12mm; } button { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>Groeiplaatsbeoordeling</h1>
+  <p class="subtitle">Rapport gegenereerd op ${escapeHtml(new Date().toLocaleString("nl-NL"))}</p>
+
+  <section>
+    <h2>Algemene gegevens</h2>
+    <table>
+      ${reportRow("Project", data.project)}
+      ${reportRow("Locatie", data.locatie)}
+      ${reportRow("Plantplaatsnummer", data.plantplaatsnummer)}
+      ${reportRow("Gemeente", data.gemeente)}
+      ${reportRow("XY / GPS", data.xy)}
+      ${reportRow("Datum", data.datum)}
+      ${reportRow("Onderzoeker", data.onderzoeker)}
+      ${reportRow("Versie", data.versie)}
+    </table>
+  </section>
+
+  <section>
+    <h2>Groeiplaatsonderzoek</h2>
+    <table>
+      ${reportRow("Maaiveld", data.maaiveld)}
+      ${reportRow("Bodemtype", data.bodemtype)}
+      ${reportRow("Verdichting", data.verdichting)}
+      ${reportRow("Vocht", data.vocht)}
+      ${reportRow("Reductie", data.reductie)}
+    </table>
+  </section>
+
+  <section>
+    <h2>Bodemprofiel</h2>
+    <table>
+      <tr><th>Van (cm)</th><th>Tot (cm)</th><th>Bodemsoort</th><th>Opmerking</th></tr>
+      ${layers}
+    </table>
+    <table>
+      ${reportRow("Storende laag (cm)", data.storende_laag)}
+      ${reportRow("Grondwater (cm)", data.grondwater)}
+      ${reportRow("Kabel (cm)", data.kabel)}
+      ${reportRow("Leiding (cm)", data.leiding)}
+      ${reportRow("Riool (cm)", data.riool)}
+      ${reportRow("Fundering (cm)", data.fundering)}
+      ${reportRow("Drainage (cm)", data.drainage)}
+      ${reportRow("Bewortelbare diepte (cm)", data.bewortelbare_diepte_cm)}
+      ${reportRow("Profielopmerking", data.profiel_opmerking)}
+    </table>
+  </section>
+
+  <section>
+    <h2>Foto's</h2>
+    <div class="photo-grid">${photos}</div>
+  </section>
+
+  <section>
+    <h2>Toetsing</h2>
+    <table>
+      ${reportRow("Lengte (m)", data.lengte)}
+      ${reportRow("Breedte (m)", data.breedte)}
+      ${reportRow("Bewortelbare diepte (m)", data.bewortelbare_diepte_m)}
+      ${reportRow("Potentieel volume (m³)", data.potentieel_volume)}
+      ${reportRow("Benodigd volume (m³)", data.benodigd_volume)}
+      ${reportRow("Beschikbaar volume (m³)", data.beschikbaar_volume)}
+      ${reportRow("Open grond (m²)", data.open_grond)}
+      ${reportRow("Boomspiegel (m²)", data.boomspiegel)}
+      ${reportRow("Beoordeling", data.beoordeling)}
+      ${reportRow("Geschikt voor", data.geschikt_voor)}
+    </table>
+  </section>
+
+  <section>
+    <h2>Advies</h2>
+    <table>
+      ${reportRow("Aanbevolen boomsoort(en)", data.boomsoorten)}
+      ${reportRow("Benodigde plantvakafmetingen", data.plantvakafmetingen)}
+      ${reportRow("Maatregelen", data.maatregelen)}
+      ${reportRow("Advies / uitwerking", data.advies)}
+      ${reportRow("Eindconclusie", data.eindconclusie)}
+    </table>
+  </section>
+</body>
+</html>`;
+}
+
+function openReport() {
+  const reportWindow = window.open("", "_blank");
+
+  if (!reportWindow) {
+    alert("Het rapport kon niet worden geopend. Sta pop-ups toe voor deze app en probeer opnieuw.");
+    return;
+  }
+
+  reportWindow.document.open();
+  reportWindow.document.write(createReportHtml(formToObject()));
+  reportWindow.document.close();
+  reportWindow.addEventListener("load", () => {
+    reportWindow.focus();
+    reportWindow.print();
+  });
+}
+
+document.querySelector("#reportButton").addEventListener("click", openReport);
+
 document.querySelector("#exportButton").addEventListener("click", () => {
   const data = formToObject();
 

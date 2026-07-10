@@ -40,6 +40,7 @@ Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Androi
 - lokaal opslaan in de browser;
 - gegevens exporteren als JSON;
 - eerder geëxporteerde JSON opnieuw importeren;
+- printbaar rapport maken en opslaan als PDF via de browser;
 - basis voor offline gebruik.
 
 Foto's worden verkleind opgeslagen in de browser en meegenomen in de JSON-export. PDF-export, handtekening en centrale synchronisatie kunnen later worden toegevoegd.
