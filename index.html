@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#496b2f">
+  <meta name="description" content="Mobiel formulier voor groeiplaatsbeoordeling">
+  <title>Groeiplaatsbeoordeling</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="subtitle">Potentiële plantplaats</p>
+      <h1>Groeiplaatsbeoordeling</h1>
+    </div>
+    <span id="saveStatus">Nog niet opgeslagen</span>
+  </header>
+
+  <main class="container">
+    <nav class="steps" aria-label="Formulierstappen">
+      <button type="button" class="step active" data-step="1">1. Algemeen</button>
+      <button type="button" class="step" data-step="2">2. Onderzoek</button>
+      <button type="button" class="step" data-step="3">3. Bodemprofiel</button>
+      <button type="button" class="step" data-step="4">4. Toetsing</button>
+      <button type="button" class="step" data-step="5">5. Advies</button>
+    </nav>
+
+    <form id="inspectionForm">
+      <section class="panel active" data-panel="1">
+        <h2>Algemene gegevens</h2>
+        <div class="grid two">
+          <label>Project<input type="text" name="project"></label>
+          <label>Locatie<input type="text" name="locatie"></label>
+          <label>Plantplaatsnummer<input type="text" name="plantplaatsnummer"></label>
+          <label>Gemeente<input type="text" name="gemeente"></label>
+          <label>XY / GPS
+            <div class="inline">
+              <input id="xy" type="text" name="xy" placeholder="52.000000, 5.000000">
+              <button type="button" id="gpsButton" class="secondary">Gebruik GPS</button>
+            </div>
+          </label>
+          <label>Datum<input type="date" name="datum" id="datum"></label>
+          <label>Onderzoeker<input type="text" name="onderzoeker"></label>
+          <label>Versie<input type="text" name="versie" value="0.1"></label>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="2">
+        <h2>Groeiplaatsonderzoek</h2>
+
+        <fieldset>
+          <legend>Maaiveld</legend>
+          <div class="choices">
+            <label><input type="radio" name="maaiveld" value="Gras"> Gras</label>
+            <label><input type="radio" name="maaiveld" value="Plantsoen"> Plantsoen</label>
+            <label><input type="radio" name="maaiveld" value="Halfverharding"> Halfverharding</label>
+            <label><input type="radio" name="maaiveld" value="Elementenverharding"> Elementenverharding</label>
+            <label><input type="radio" name="maaiveld" value="Asfalt"> Asfalt</label>
+            <label><input type="radio" name="maaiveld" value="Overig"> Overig</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Bodemtype</legend>
+          <div class="choices">
+            <label><input type="radio" name="bodemtype" value="Zand"> Zand</label>
+            <label><input type="radio" name="bodemtype" value="Zavel"> Zavel</label>
+            <label><input type="radio" name="bodemtype" value="Leem"> Leem</label>
+            <label><input type="radio" name="bodemtype" value="Klei"> Klei</label>
+            <label><input type="radio" name="bodemtype" value="Veen"> Veen</label>
+            <label><input type="radio" name="bodemtype" value="Ophooggrond"> Ophooggrond</label>
+          </div>
+        </fieldset>
+
+        <div class="grid three">
+          <fieldset>
+            <legend>Verdichting</legend>
+            <label><input type="radio" name="verdichting" value="Geen"> Geen</label>
+            <label><input type="radio" name="verdichting" value="Licht"> Licht</label>
+            <label><input type="radio" name="verdichting" value="Matig"> Matig</label>
+            <label><input type="radio" name="verdichting" value="Sterk"> Sterk</label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Vocht</legend>
+            <label><input type="radio" name="vocht" value="Droog"> Droog</label>
+            <label><input type="radio" name="vocht" value="Vochtig"> Vochtig</label>
+            <label><input type="radio" name="vocht" value="Nat"> Nat</label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Reductie</legend>
+            <label><input type="radio" name="reductie" value="Geen"> Geen</label>
+            <label><input type="radio" name="reductie" value="Licht"> Licht</label>
+            <label><input type="radio" name="reductie" value="Sterk"> Sterk</label>
+          </fieldset>
+        </div>
+
+        <h3>Situatiefoto's</h3>
+        <div class="grid two">
+          <label class="photo-box">Situatiefoto 1
+            <input id="photo1" type="file" accept="image/*" capture="environment">
+            <img id="preview1" alt="Voorbeeld situatiefoto 1" hidden>
+          </label>
+          <label class="photo-box">Situatiefoto 2
+            <input id="photo2" type="file" accept="image/*" capture="environment">
+            <img id="preview2" alt="Voorbeeld situatiefoto 2" hidden>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="3">
+        <div class="section-title">
+          <h2>Bodemprofiel</h2>
+          <button type="button" id="addLayer" class="secondary">+ Bodemlaag</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="layersTable">
+            <thead>
+              <tr>
+                <th>Van (cm)</th>
+                <th>Tot (cm)</th>
+                <th>Bodemsoort</th>
+                <th>Opmerking</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h3>Objecten en dieptes</h3>
+        <div class="grid two">
+          <label>Storende laag (cm)<input type="number" min="0" max="500" name="storende_laag"></label>
+          <label>Grondwater (cm)<input type="number" min="0" max="500" name="grondwater"></label>
+          <label>Kabel (cm)<input type="number" min="0" max="500" name="kabel"></label>
+          <label>Leiding (cm)<input type="number" min="0" max="500" name="leiding"></label>
+          <label>Riool (cm)<input type="number" min="0" max="500" name="riool"></label>
+          <label>Fundering (cm)<input type="number" min="0" max="500" name="fundering"></label>
+          <label>Drainage (cm)<input type="number" min="0" max="500" name="drainage"></label>
+          <label>Bewortelbare diepte (cm)<input id="bewortelbareDiepteCm" type="number" min="0" max="500" name="bewortelbare_diepte_cm"></label>
+        </div>
+
+        <label>Profielopmerking<textarea name="profiel_opmerking" rows="4"></textarea></label>
+      </section>
+
+      <section class="panel" data-panel="4">
+        <h2>Toetsing</h2>
+        <div class="grid three">
+          <label>Lengte (m)<input id="lengte" type="number" min="0" step="0.01" name="lengte"></label>
+          <label>Breedte (m)<input id="breedte" type="number" min="0" step="0.01" name="breedte"></label>
+          <label>Bewortelbare diepte (m)<input id="bewortelbareDiepteM" type="number" min="0" step="0.01" name="bewortelbare_diepte_m"></label>
+        </div>
+
+        <div class="result">
+          <span>Potentieel volume</span>
+          <strong><output id="volumeOutput">0,00</output> m³</strong>
+        </div>
+
+        <div class="grid two">
+          <label>Benodigd volume (m³)<input type="number" min="0" step="0.01" name="benodigd_volume"></label>
+          <label>Beschikbaar volume (m³)<input type="number" min="0" step="0.01" name="beschikbaar_volume"></label>
+          <label>Open grond (m²)<input type="number" min="0" step="0.01" name="open_grond"></label>
+          <label>Boomspiegel (m²)<input type="number" min="0" step="0.01" name="boomspiegel"></label>
+        </div>
+
+        <fieldset>
+          <legend>Beoordeling</legend>
+          <div class="choices">
+            <label><input type="radio" name="beoordeling" value="1e"> 1e</label>
+            <label><input type="radio" name="beoordeling" value="2e"> 2e</label>
+            <label><input type="radio" name="beoordeling" value="3e"> 3e</label>
+            <label><input type="radio" name="beoordeling" value="Ongeschikt"> Ongeschikt</label>
+          </div>
+        </fieldset>
+
+        <label>Geschikt voor<input type="text" name="geschikt_voor"></label>
+      </section>
+
+      <section class="panel" data-panel="5">
+        <h2>Advies</h2>
+        <label>Aanbevolen boomsoort(en)<textarea name="boomsoorten" rows="3"></textarea></label>
+        <label>Benodigde plantvakafmetingen<textarea name="plantvakafmetingen" rows="3"></textarea></label>
+
+        <fieldset>
+          <legend>Maatregelen</legend>
+          <div class="choices">
+            <label><input type="checkbox" name="maatregelen" value="Geen"> Geen</label>
+            <label><input type="checkbox" name="maatregelen" value="Beluchten"> Beluchten</label>
+            <label><input type="checkbox" name="maatregelen" value="Bodemverbetering"> Bodemverbetering</label>
+            <label><input type="checkbox" name="maatregelen" value="Bomenzand"> Bomenzand</label>
+            <label><input type="checkbox" name="maatregelen" value="Bomengranulaat"> Bomengranulaat</label>
+            <label><input type="checkbox" name="maatregelen" value="Drainage"> Drainage</label>
+          </div>
+        </fieldset>
+
+        <label>Advies / uitwerking<textarea name="advies" rows="5"></textarea></label>
+        <label>Eindconclusie<textarea name="eindconclusie" rows="5"></textarea></label>
+
+        <div class="actions">
+          <button type="button" id="saveButton">Lokaal opslaan</button>
+          <button type="button" id="exportButton" class="secondary">Exporteer JSON</button>
+          <button type="reset" id="resetButton" class="danger">Nieuw formulier</button>
+        </div>
+      </section>
+
+      <div class="form-navigation">
+        <button type="button" id="previousButton" class="secondary" disabled>Vorige</button>
+        <button type="button" id="nextButton">Volgende</button>
+      </div>
+    </form>
+  </main>
+
+  <template id="layerRowTemplate">
+    <tr>
+      <td><input type="number" min="0" max="500" class="layer-from"></td>
+      <td><input type="number" min="0" max="500" class="layer-to"></td>
+      <td>
+        <select class="layer-type">
+          <option value="">Kies...</option>
+          <option>Zand</option>
+          <option>Zavel</option>
+          <option>Leem</option>
+          <option>Klei</option>
+          <option>Veen</option>
+          <option>Ophooggrond</option>
+          <option>Puin</option>
+          <option>Overig</option>
+        </select>
+      </td>
+      <td><input type="text" class="layer-note"></td>
+      <td><button type="button" class="remove-layer">×</button></td>
+    </tr>
+  </template>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

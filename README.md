@@ -1,0 +1,44 @@
+# Groeiplaatsbeoordeling PWA
+
+## Bestanden
+
+Zet deze bestanden samen in één map:
+
+- `index.html`
+- `styles.css`
+- `app.js`
+- `manifest.webmanifest`
+- `service-worker.js`
+- `icon-192.png`
+- `icon-512.png`
+
+## Lokaal testen
+
+Open een terminal in de map en start:
+
+```bash
+python -m http.server 8080
+```
+
+Open daarna:
+
+```text
+http://localhost:8080
+```
+
+## Op Android gebruiken
+
+Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Android en kies **App installeren** of **Toevoegen aan startscherm**.
+
+## Functies in deze eerste versie
+
+- formulier in vijf stappen;
+- GPS ophalen;
+- foto's maken en vooraf bekijken;
+- bodemlagen toevoegen;
+- volume automatisch berekenen;
+- lokaal opslaan in de browser;
+- gegevens exporteren als JSON;
+- basis voor offline gebruik.
+
+Foto's worden nog niet permanent opgeslagen. PDF-export, handtekening en centrale synchronisatie kunnen later worden toegevoegd.
