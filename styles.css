@@ -95,6 +95,33 @@ button.danger {
   margin: 1rem auto 4rem;
 }
 
+.inspection-manager {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.inspection-manager h2 {
+  margin: 0;
+}
+
+.inspection-manager p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.manager-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .steps {
   display: grid;
   grid-template-columns: repeat(5, minmax(115px, 1fr));
@@ -324,7 +351,8 @@ td select {
   }
 
   .grid.two,
-  .grid.three {
+  .grid.three,
+  .manager-controls {
     grid-template-columns: 1fr;
   }
 

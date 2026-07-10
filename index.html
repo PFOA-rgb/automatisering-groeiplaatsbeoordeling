@@ -19,6 +19,21 @@
   </header>
 
   <main class="container">
+    <section class="inspection-manager" aria-label="Mijn onderzoeken">
+      <div>
+</div>        <h2>Mijn onderzoeken</h</h2>2>
+        <p>Kies een lokaal opgeslagen onderzoek of start een nieuw onderzoek.</p>
+      </div>
+      <div class="manager-controls">
+        <select id="inspectionSelect" aria-label="Opgeslagen onderzoeken">
+          <option value="">Geen opgeslagen onderzoeken</option>
+        </select>
+        <button type="button" id="openInspectionButton" class="secondary">Open</button>
+        <button type="button" id="newInspectionButton" class="secondary">Nieuw onderzoek</button>
+        <button type="button" id="deleteInspectionButton" class="danger">Verwijder</button>
+      </div>
+    </section>
+
     <nav class="steps" aria-label="Formulierstappen">
       <button type="button" class="step active" data-step="1">1. Algemeen</button>
       <button type="button" class="step" data-step="2">2. Onderzoek</button>

@@ -1,4 +1,5 @@
 const STORAGE_KEY = "groeiplaats-inspectie-v1";
+const INSPECTIONS_STORAGE_KEY = "groeiplaats-inspecties-v1";
 
 const form = document.querySelector("#inspectionForm");
 const panels = [...document.querySelectorAll("[data-panel]")];
@@ -9,12 +10,144 @@ const saveStatus = document.querySelector("#saveStatus");
 const layersBody = document.querySelector("#layersTable tbody");
 const layerTemplate = document.querySelector("#layerRowTemplate");
 const importFile = document.querySelector("#importFile");
+const inspectionSelect = document.querySelector("#inspectionSelect");
+const openInspectionButton = document.querySelector("#openInspectionButton");
+const newInspectionButton = document.querySelector("#newInspectionButton");
+const deleteInspectionButton = document.querySelector("#deleteInspectionButton");
 
 let currentStep = 1;
+let currentInspectionId = null;
 const photoData = {
   photo1: null,
   photo2: null
 };
+
+function createInspectionId() {
+  return `inspectie-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getInspectionTitle(data) {
+  return [data.plantplaatsnummer, data.project, data.locatie]
+    .map(value => value?.toString().trim())
+    .filter(Boolean)
+    .join(" - ") || `Onderzoek ${new Date().toLocaleDateString("nl-NL")}`;
+}
+
+function loadInspections() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(INSPECTIONS_STORAGE_KEY));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn("Opgeslagen onderzoeken konden niet worden geladen.", error);
+    return [];
+  }
+}
+
+function saveInspections(inspections) {
+  localStorage.setItem(INSPECTIONS_STORAGE_KEY, JSON.stringify(inspections));
+}
+
+function renderInspectionList() {
+  const inspections = loadInspections();
+  inspectionSelect.innerHTML = "";
+
+  if (!inspections.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Geen opgeslagen onderzoeken";
+    inspectionSelect.appendChild(option);
+    inspectionSelect.disabled = true;
+    openInspectionButton.disabled = true;
+    deleteInspectionButton.disabled = true;
+    return;
+  }
+
+  inspectionSelect.disabled = false;
+  openInspectionButton.disabled = false;
+  deleteInspectionButton.disabled = false;
+
+  inspections
+    .slice()
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+    .forEach(inspection => {
+      const option = document.createElement("option");
+      option.value = inspection.id;
+      option.textContent = `${inspection.title} (${new Date(inspection.updatedAt).toLocaleString("nl-NL")})`;
+      option.selected = inspection.id === currentInspectionId;
+      inspectionSelect.appendChild(option);
+    });
+}
+
+function resetCurrentForm(message = "Nieuw onderzoek") {
+  currentInspectionId = null;
+  form.reset();
+  photoData.photo1 = null;
+  photoData.photo2 = null;
+  document.querySelector("#preview1").hidden = true;
+  document.querySelector("#preview1").removeAttribute("src");
+  document.querySelector("#preview2").hidden = true;
+  document.querySelector("#preview2").removeAttribute("src");
+  layersBody.innerHTML = "";
+  addLayer();
+  document.querySelector("#datum").valueAsDate = new Date();
+  calculateVolume();
+  showStep(1);
+  saveStatus.textContent = message;
+  renderInspectionList();
+}
+
+function openInspection(id) {
+  const inspection = loadInspections().find(item => item.id === id);
+  if (!inspection) return;
+
+  currentInspectionId = inspection.id;
+  form.reset();
+  restoreForm(inspection.data);
+  showStep(1);
+  saveStatus.textContent = "Onderzoek geopend";
+  renderInspectionList();
+}
+
+function deleteInspection(id) {
+  const inspections = loadInspections();
+  const inspection = inspections.find(item => item.id === id);
+  if (!inspection) return;
+
+  const confirmed = window.confirm(`Onderzoek "${inspection.title}" verwijderen?`);
+  if (!confirmed) return;
+
+  saveInspections(inspections.filter(item => item.id !== id));
+
+  if (currentInspectionId === id) {
+    resetCurrentForm("Onderzoek verwijderd");
+  } else {
+    renderInspectionList();
+    saveStatus.textContent = "Onderzoek verwijderd";
+  }
+}
+
+function migrateSingleSavedInspection() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved || loadInspections().length) return false;
+
+  try {
+    const data = JSON.parse(saved);
+    currentInspectionId = createInspectionId();
+    saveInspections([{
+      id: currentInspectionId,
+      title: getInspectionTitle(data),
+      updatedAt: data.laatst_opgeslagen || new Date().toISOString(),
+      data
+    }]);
+    restoreForm(data);
+    saveStatus.textContent = "Bestaand formulier gemigreerd";
+    renderInspectionList();
+    return true;
+  } catch (error) {
+    console.warn("Bestaand formulier kon niet worden gemigreerd.", error);
+    return false;
+  }
+}
 
 function showStep(step) {
   currentStep = Math.max(1, Math.min(5, Number(step)));
@@ -151,8 +284,29 @@ function restoreForm(data) {
 
 function saveForm() {
   const data = formToObject();
+  const inspections = loadInspections();
+  const now = new Date().toISOString();
+
+  if (!currentInspectionId) {
+    currentInspectionId = createInspectionId();
+  }
+
+  const inspection = {
+    id: currentInspectionId,
+    title: getInspectionTitle(data),
+    updatedAt: now,
+    data
+  };
+
+  const existingIndex = inspections.findIndex(item => item.id === currentInspectionId);
+  if (existingIndex >= 0) {
+    inspections[existingIndex] = inspection;
+  } else {
+    inspections.push(inspection);
+  }
 
   try {
+    saveInspections(inspections);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
     console.warn("Formulier kon niet lokaal worden opgeslagen.", error);
@@ -165,8 +319,9 @@ function saveForm() {
     minute: "2-digit"
   })}`;
 
+  renderInspectionList();
   saveStatus.textContent = savedMessage;
-  alert(`${savedMessage}. Het formulier staat nu in deze browser opgeslagen.`);
+  alert(`${savedMessage}. Het onderzoek staat nu in deze browser opgeslagen.`);
 }
 
 function markUnsaved() {
@@ -174,6 +329,12 @@ function markUnsaved() {
 }
 
 document.querySelector("#saveButton").addEventListener("click", saveForm);
+openInspectionButton.addEventListener("click", () => openInspection(inspectionSelect.value));
+newInspectionButton.addEventListener("click", () => {
+  const confirmed = !currentInspectionId || window.confirm("Nieuw onderzoek starten? Niet-opgeslagen wijzigingen gaan verloren.");
+  if (confirmed) resetCurrentForm();
+});
+deleteInspectionButton.addEventListener("click", () => deleteInspection(inspectionSelect.value));
 form.addEventListener("input", markUnsaved);
 form.addEventListener("change", markUnsaved);
 
@@ -188,21 +349,8 @@ document.querySelector("#resetButton").addEventListener("click", event => {
   }
 
   localStorage.removeItem(STORAGE_KEY);
-  photoData.photo1 = null;
-  photoData.photo2 = null;
-  document.querySelector("#preview1").hidden = true;
-  document.querySelector("#preview1").removeAttribute("src");
-  document.querySelector("#preview2").hidden = true;
-  document.querySelector("#preview2").removeAttribute("src");
-  layersBody.innerHTML = "";
-  addLayer();
 
-  setTimeout(() => {
-    document.querySelector("#datum").valueAsDate = new Date();
-    calculateVolume();
-    showStep(1);
-    saveStatus.textContent = "Nieuw formulier";
-  });
+  setTimeout(() => resetCurrentForm("Nieuw formulier"));
 });
 
 document.querySelector("#gpsButton").addEventListener("click", () => {
@@ -307,11 +455,21 @@ function loadImportedData(data) {
     throw new Error("Ongeldig JSON-bestand.");
   }
 
+  currentInspectionId = createInspectionId();
   form.reset();
   restoreForm(data);
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(formToObject()));
+    const importedData = formToObject();
+    const inspections = loadInspections();
+    inspections.push({
+      id: currentInspectionId,
+      title: getInspectionTitle(importedData),
+      updatedAt: new Date().toISOString(),
+      data: importedData
+    });
+    saveInspections(inspections);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(importedData));
   } catch (error) {
     console.warn("Geïmporteerd formulier kon niet lokaal worden opgeslagen.", error);
     alert("JSON is geïmporteerd, maar lokaal opslaan is mislukt. De foto's zijn mogelijk te groot.");
@@ -319,6 +477,7 @@ function loadImportedData(data) {
   }
 
   showStep(1);
+  renderInspectionList();
   saveStatus.textContent = "JSON geïmporteerd en lokaal opgeslagen";
 }
 
@@ -551,16 +710,14 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-const saved = localStorage.getItem(STORAGE_KEY);
+renderInspectionList();
 
-if (saved) {
-  try {
-    restoreForm(JSON.parse(saved));
-  } catch (error) {
-    console.warn("Opgeslagen formulier kon niet worden geladen.", error);
-    addLayer();
+if (!migrateSingleSavedInspection()) {
+  const inspections = loadInspections();
+
+  if (inspections.length) {
+    openInspection(inspections.slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0].id);
+  } else {
+    resetCurrentForm("Nog niet opgeslagen");
   }
-} else {
-  addLayer();
-  document.querySelector("#datum").valueAsDate = new Date();
 }
