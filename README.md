@@ -39,6 +39,7 @@ Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Androi
 - volume automatisch berekenen;
 - lokaal opslaan in de browser;
 - gegevens exporteren als JSON;
+- eerder geëxporteerde JSON opnieuw importeren;
 - basis voor offline gebruik.
 
 Foto's worden verkleind opgeslagen in de browser en meegenomen in de JSON-export. PDF-export, handtekening en centrale synchronisatie kunnen later worden toegevoegd.

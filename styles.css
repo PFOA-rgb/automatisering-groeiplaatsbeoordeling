@@ -29,7 +29,8 @@ textarea {
   font: inherit;
 }
 
-button {
+button,
+.button-like {
   border: 0;
   border-radius: 10px;
   padding: 0.8rem 1rem;
@@ -37,6 +38,7 @@ button {
   color: white;
   font-weight: 700;
   cursor: pointer;
+  text-align: center;
 }
 
 button:disabled {
@@ -44,7 +46,8 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button.secondary {
+button.secondary,
+.button-like.secondary {
   background: var(--green-light);
   color: var(--green-dark);
 }
@@ -301,6 +304,15 @@ td select {
   margin-top: 1.5rem;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .form-navigation {
   justify-content: space-between;
   padding: 1rem 0;
@@ -326,6 +338,7 @@ td select {
   }
 
   #saveStatus {
-    display: none;
+    white-space: normal;
+    text-align: right;
   }
 }

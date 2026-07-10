@@ -8,6 +8,7 @@ const nextButton = document.querySelector("#nextButton");
 const saveStatus = document.querySelector("#saveStatus");
 const layersBody = document.querySelector("#layersTable tbody");
 const layerTemplate = document.querySelector("#layerRowTemplate");
+const importFile = document.querySelector("#importFile");
 
 let currentStep = 1;
 const photoData = {
@@ -159,10 +160,13 @@ function saveForm() {
     return;
   }
 
-  saveStatus.textContent = `Opgeslagen ${new Date().toLocaleTimeString("nl-NL", {
+  const savedMessage = `Opgeslagen ${new Date().toLocaleTimeString("nl-NL", {
     hour: "2-digit",
     minute: "2-digit"
   })}`;
+
+  saveStatus.textContent = savedMessage;
+  alert(`${savedMessage}. Het formulier staat nu in deze browser opgeslagen.`);
 }
 
 function markUnsaved() {
@@ -297,6 +301,51 @@ function setupPhotoInput(inputSelector, previewSelector, key) {
 
 setupPhotoInput("#photo1", "#preview1", "photo1");
 setupPhotoInput("#photo2", "#preview2", "photo2");
+
+function loadImportedData(data) {
+  if (!data || typeof data !== "object") {
+    throw new Error("Ongeldig JSON-bestand.");
+  }
+
+  form.reset();
+  restoreForm(data);
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(formToObject()));
+  } catch (error) {
+    console.warn("Geïmporteerd formulier kon niet lokaal worden opgeslagen.", error);
+    alert("JSON is geïmporteerd, maar lokaal opslaan is mislukt. De foto's zijn mogelijk te groot.");
+    return;
+  }
+
+  showStep(1);
+  saveStatus.textContent = "JSON geïmporteerd en lokaal opgeslagen";
+}
+
+importFile.addEventListener("change", () => {
+  const file = importFile.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.addEventListener("load", () => {
+    try {
+      loadImportedData(JSON.parse(reader.result));
+    } catch (error) {
+      console.warn("JSON kon niet worden geïmporteerd.", error);
+      alert("Dit JSON-bestand kon niet worden geïmporteerd. Controleer of het uit deze app komt.");
+    } finally {
+      importFile.value = "";
+    }
+  });
+
+  reader.addEventListener("error", () => {
+    alert("Het JSON-bestand kon niet worden gelezen.");
+    importFile.value = "";
+  });
+
+  reader.readAsText(file);
+});
 
 document.querySelector("#exportButton").addEventListener("click", () => {
   const data = formToObject();
