@@ -392,22 +392,31 @@ function createReportHtml(data) {
   <meta charset="utf-8">
   <title>Groeiplaatsbeoordeling rapport</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; color: #1f2a1a; }
+    @page { size: A4; margin: 10mm; }
+    body { font-family: Arial, sans-serif; margin: 24px; color: #1f2a1a; font-size: 12px; }
     h1, h2 { color: #355021; }
-    h1 { margin-bottom: 0; }
-    .subtitle { color: #667060; margin-top: 4px; }
-    section { break-inside: avoid; margin-top: 24px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { border: 1px solid #ccd5c6; padding: 8px; text-align: left; vertical-align: top; }
+    h1 { margin: 0; font-size: 22px; }
+    h2 { margin: 0 0 6px; font-size: 15px; }
+    .subtitle { color: #667060; margin: 4px 0 0; }
+    .report-page { break-after: page; page-break-after: always; }
+    .report-page:last-child { break-after: auto; page-break-after: auto; }
+    section { break-inside: avoid; page-break-inside: avoid; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th, td { border: 1px solid #ccd5c6; padding: 4px 6px; text-align: left; vertical-align: top; }
     th { width: 34%; background: #e8efe3; }
-    .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-    figure { margin: 0; break-inside: avoid; }
-    img { width: 100%; max-height: 360px; object-fit: contain; border: 1px solid #ccd5c6; }
-    figcaption { margin-top: 6px; color: #667060; }
-    @media print { body { margin: 12mm; } button { display: none; } }
+    .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    figure { margin: 0; break-inside: avoid; page-break-inside: avoid; }
+    img { width: 100%; max-height: 170px; object-fit: contain; border: 1px solid #ccd5c6; }
+    figcaption { margin-top: 4px; color: #667060; }
+    @media print {
+      body { margin: 0; }
+      button { display: none; }
+      .report-page { min-height: 277mm; }
+    }
   </style>
 </head>
 <body>
+  <div class="report-page">
   <h1>Groeiplaatsbeoordeling</h1>
   <p class="subtitle">Rapport gegenereerd op ${escapeHtml(new Date().toLocaleString("nl-NL"))}</p>
 
@@ -460,6 +469,12 @@ function createReportHtml(data) {
     <div class="photo-grid">${photos}</div>
   </section>
 
+  </div>
+
+  <div class="report-page">
+  <h1>Groeiplaatsbeoordeling</h1>
+  <p class="subtitle">Toetsing en advies</p>
+
   <section>
     <h2>Toetsing</h2>
     <table>
@@ -486,6 +501,7 @@ function createReportHtml(data) {
       ${reportRow("Eindconclusie", data.eindconclusie)}
     </table>
   </section>
+  </div>
 </body>
 </html>`;
 }
