@@ -398,20 +398,18 @@ function createReportHtml(data) {
     h1 { margin: 0; font-size: 22px; }
     h2 { margin: 0 0 6px; font-size: 15px; }
     .subtitle { color: #667060; margin: 4px 0 0; }
-    .report-page { break-after: page; page-break-after: always; }
-    .report-page:last-child { break-after: auto; page-break-after: auto; }
-    section { break-inside: avoid; page-break-inside: avoid; margin-top: 12px; }
+    .report-page:not(:last-child) { break-after: page; page-break-after: always; }
+    section { break-inside: avoid; page-break-inside: avoid; margin-top: 10px; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-    th, td { border: 1px solid #ccd5c6; padding: 4px 6px; text-align: left; vertical-align: top; }
+    th, td { border: 1px solid #ccd5c6; padding: 3px 5px; text-align: left; vertical-align: top; }
     th { width: 34%; background: #e8efe3; }
     .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     figure { margin: 0; break-inside: avoid; page-break-inside: avoid; }
-    img { width: 100%; max-height: 170px; object-fit: contain; border: 1px solid #ccd5c6; }
+    img { width: 100%; max-height: 135px; object-fit: contain; border: 1px solid #ccd5c6; }
     figcaption { margin-top: 4px; color: #667060; }
     @media print {
       body { margin: 0; }
       button { display: none; }
-      .report-page { min-height: 277mm; }
     }
   </style>
 </head>
