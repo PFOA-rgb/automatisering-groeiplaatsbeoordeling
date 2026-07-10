@@ -10,6 +10,10 @@ const layersBody = document.querySelector("#layersTable tbody");
 const layerTemplate = document.querySelector("#layerRowTemplate");
 
 let currentStep = 1;
+const photoData = {
+  photo1: null,
+  photo2: null
+};
 
 function showStep(step) {
   currentStep = Math.max(1, Math.min(5, Number(step)));
@@ -104,6 +108,7 @@ function formToObject() {
   }
 
   result.bodemlagen = collectLayers();
+  result.fotos = { ...photoData };
   result.potentieel_volume = Number(calculateVolume().toFixed(2));
   result.laatst_opgeslagen = new Date().toISOString();
 
@@ -136,13 +141,23 @@ function restoreForm(data) {
   layersBody.innerHTML = "";
   (data.bodemlagen?.length ? data.bodemlagen : [{}]).forEach(addLayer);
 
+  restorePhoto("photo1", "#preview1", data.fotos?.photo1);
+  restorePhoto("photo2", "#preview2", data.fotos?.photo2);
+
   calculateVolume();
   saveStatus.textContent = "Lokaal geladen";
 }
 
 function saveForm() {
   const data = formToObject();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn("Formulier kon niet lokaal worden opgeslagen.", error);
+    alert("Opslaan is mislukt. De foto's zijn mogelijk te groot voor lokale opslag. Probeer kleinere foto's of exporteer direct naar JSON.");
+    return;
+  }
 
   saveStatus.textContent = `Opgeslagen ${new Date().toLocaleTimeString("nl-NL", {
     hour: "2-digit",
@@ -169,6 +184,12 @@ document.querySelector("#resetButton").addEventListener("click", event => {
   }
 
   localStorage.removeItem(STORAGE_KEY);
+  photoData.photo1 = null;
+  photoData.photo2 = null;
+  document.querySelector("#preview1").hidden = true;
+  document.querySelector("#preview1").removeAttribute("src");
+  document.querySelector("#preview2").hidden = true;
+  document.querySelector("#preview2").removeAttribute("src");
   layersBody.innerHTML = "";
   addLayer();
 
@@ -212,21 +233,70 @@ document.querySelector("#gpsButton").addEventListener("click", () => {
   );
 });
 
-function setupPhotoPreview(inputSelector, previewSelector) {
-  const input = document.querySelector(inputSelector);
+function restorePhoto(key, previewSelector, value) {
+  photoData[key] = value || null;
+
   const preview = document.querySelector(previewSelector);
-
-  input.addEventListener("change", () => {
-    const file = input.files?.[0];
-    if (!file) return;
-
-    preview.src = URL.createObjectURL(file);
+  if (value) {
+    preview.src = value;
     preview.hidden = false;
+  } else {
+    preview.hidden = true;
+    preview.removeAttribute("src");
+  }
+}
+
+function resizePhoto(file, maxSize = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.addEventListener("load", () => {
+      const image = new Image();
+
+      image.addEventListener("load", () => {
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      });
+
+      image.addEventListener("error", reject);
+      image.src = reader.result;
+    });
+
+    reader.addEventListener("error", reject);
+    reader.readAsDataURL(file);
   });
 }
 
-setupPhotoPreview("#photo1", "#preview1");
-setupPhotoPreview("#photo2", "#preview2");
+function setupPhotoInput(inputSelector, previewSelector, key) {
+  const input = document.querySelector(inputSelector);
+  const preview = document.querySelector(previewSelector);
+
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      const dataUrl = await resizePhoto(file);
+      photoData[key] = dataUrl;
+      preview.src = dataUrl;
+      preview.hidden = false;
+      markUnsaved();
+    } catch (error) {
+      console.warn("Foto kon niet worden verwerkt.", error);
+      alert("De foto kon niet worden verwerkt. Probeer een andere foto.");
+    }
+  });
+}
+
+setupPhotoInput("#photo1", "#preview1", "photo1");
+setupPhotoInput("#photo2", "#preview2", "photo2");
 
 document.querySelector("#exportButton").addEventListener("click", () => {
   const data = formToObject();
