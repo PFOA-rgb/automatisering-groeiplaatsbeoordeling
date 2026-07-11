@@ -21,7 +21,7 @@
   <main class="container">
     <section class="inspection-manager" aria-label="Mijn onderzoeken">
       <div>
-        <h2></h2>Mijn onderzoeken</h2>
+        <h2>Mijn onderzoeken</h2>
         <p>Kies een lokaal opgeslagen onderzoek of start een nieuw onderzoek.</p>
       </div>
       <div class="manager-controls">
@@ -30,6 +30,7 @@
         </select>
         <button type="button" id="openInspectionButton" class="secondary">Open</button>
         <button type="button" id="newInspectionButton" class="secondary">Nieuw onderzoek</button>
+        <button type="button" id="copyInspectionButton" class="secondary">Kopieer</button>
         <button type="button" id="deleteInspectionButton" class="danger">Verwijder</button>
       </div>
     </section>
@@ -45,6 +46,7 @@
     <form id="inspectionForm">
       <section class="panel active" data-panel="1">
         <h2>Algemene gegevens</h2>
+        <label class="keep-general"><input id="keepGeneralData" type="checkbox"> Algemene gegevens behouden bij nieuw onderzoek</label>
         <div class="grid two">
           <label>Project<input type="text" name="project"></label>
           <label>Locatie<input type="text" name="locatie"></label>

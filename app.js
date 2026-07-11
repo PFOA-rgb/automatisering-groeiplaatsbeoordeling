@@ -13,7 +13,9 @@ const importFile = document.querySelector("#importFile");
 const inspectionSelect = document.querySelector("#inspectionSelect");
 const openInspectionButton = document.querySelector("#openInspectionButton");
 const newInspectionButton = document.querySelector("#newInspectionButton");
+const copyInspectionButton = document.querySelector("#copyInspectionButton");
 const deleteInspectionButton = document.querySelector("#deleteInspectionButton");
+const keepGeneralData = document.querySelector("#keepGeneralData");
 
 let currentStep = 1;
 let currentInspectionId = null;
@@ -21,6 +23,17 @@ const photoData = {
   photo1: null,
   photo2: null
 };
+
+const GENERAL_FIELD_NAMES = [
+  "project",
+  "locatie",
+  "plantplaatsnummer",
+  "gemeente",
+  "xy",
+  "datum",
+  "onderzoeker",
+  "versie"
+];
 
 function createInspectionId() {
   return `inspectie-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -47,6 +60,25 @@ function saveInspections(inspections) {
   localStorage.setItem(INSPECTIONS_STORAGE_KEY, JSON.stringify(inspections));
 }
 
+function collectGeneralData() {
+  return GENERAL_FIELD_NAMES.reduce((values, name) => {
+    const field = form.elements[name];
+    if (field) values[name] = field.value;
+    return values;
+  }, {});
+}
+
+function restoreGeneralData(values) {
+  Object.entries(values).forEach(([name, value]) => {
+    const field = form.elements[name];
+    if (field) field.value = value ?? "";
+  });
+}
+
+function cloneData(data) {
+  return JSON.parse(JSON.stringify(data));
+}
+
 function renderInspectionList() {
   const inspections = loadInspections();
   inspectionSelect.innerHTML = "";
@@ -58,12 +90,14 @@ function renderInspectionList() {
     inspectionSelect.appendChild(option);
     inspectionSelect.disabled = true;
     openInspectionButton.disabled = true;
+    copyInspectionButton.disabled = true;
     deleteInspectionButton.disabled = true;
     return;
   }
 
   inspectionSelect.disabled = false;
   openInspectionButton.disabled = false;
+  copyInspectionButton.disabled = false;
   deleteInspectionButton.disabled = false;
 
   inspections
@@ -94,13 +128,20 @@ function clearPhotos() {
 }
 
 function resetCurrentForm(message = "Nieuw onderzoek") {
+  const shouldKeepGeneralData = keepGeneralData.checked;
+  const preservedGeneralData = shouldKeepGeneralData ? collectGeneralData() : null;
+
   currentInspectionId = null;
   localStorage.removeItem(STORAGE_KEY);
   form.reset();
+  keepGeneralData.checked = shouldKeepGeneralData;
+  if (preservedGeneralData) restoreGeneralData(preservedGeneralData);
   clearPhotos();
   layersBody.innerHTML = "";
   addLayer();
-  document.querySelector("#datum").valueAsDate = new Date();
+  if (!preservedGeneralData?.datum) {
+    document.querySelector("#datum").valueAsDate = new Date();
+  }
   calculateVolume();
   showStep(1);
   saveStatus.textContent = message;
@@ -116,6 +157,39 @@ function openInspection(id) {
   restoreForm(inspection.data);
   showStep(1);
   saveStatus.textContent = "Onderzoek geopend";
+  renderInspectionList();
+}
+
+function copyInspection(id) {
+  const source = loadInspections().find(item => item.id === id);
+  if (!source) return;
+
+  const data = cloneData(source.data);
+  currentInspectionId = createInspectionId();
+
+  const copiedInspection = {
+    id: currentInspectionId,
+    title: `Kopie van ${source.title}`,
+    updatedAt: new Date().toISOString(),
+    data
+  };
+
+  const inspections = loadInspections();
+  inspections.push(copiedInspection);
+
+  try {
+    saveInspections(inspections);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn("Onderzoek kon niet worden gekopieerd.", error);
+    alert("Kopiëren is mislukt. De foto's zijn mogelijk te groot voor lokale opslag.");
+    return;
+  }
+
+  form.reset();
+  restoreForm(data);
+  showStep(1);
+  saveStatus.textContent = "Onderzoek gekopieerd";
   renderInspectionList();
 }
 
@@ -345,6 +419,7 @@ newInspectionButton.addEventListener("click", () => {
   const confirmed = !currentInspectionId || window.confirm("Nieuw onderzoek starten? Niet-opgeslagen wijzigingen gaan verloren.");
   if (confirmed) resetCurrentForm();
 });
+copyInspectionButton.addEventListener("click", () => copyInspection(inspectionSelect.value));
 deleteInspectionButton.addEventListener("click", () => deleteInspection(inspectionSelect.value));
 form.addEventListener("input", markUnsaved);
 form.addEventListener("change", markUnsaved);

@@ -37,7 +37,8 @@ Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Androi
 - foto's maken en vooraf bekijken;
 - bodemlagen toevoegen;
 - volume automatisch berekenen;
-- meerdere onderzoeken lokaal opslaan, openen en verwijderen in de browser;
+- meerdere onderzoeken lokaal opslaan, openen, kopiëren en verwijderen in de browser;
+- algemene gegevens optioneel behouden bij een nieuw onderzoek;
 - gegevens exporteren als JSON;
 - eerder geëxporteerde JSON opnieuw importeren;
 - printbaar rapport maken en opslaan als PDF via de browser;
