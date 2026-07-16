@@ -160,11 +160,11 @@ function openInspection(id) {
   renderInspectionList();
 }
 
-function copyInspection(id) {
+async function copyInspection(id) {
   const source = loadInspections().find(item => item.id === id);
   if (!source) return;
 
-  const data = cloneData(source.data);
+  const data = await compressDataPhotos(cloneData(source.data));
   currentInspectionId = createInspectionId();
 
   const copiedInspection = {
@@ -179,7 +179,6 @@ function copyInspection(id) {
 
   try {
     saveInspections(inspections);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
     console.warn("Onderzoek kon niet worden gekopieerd.", error);
     alert("Kopiëren is mislukt. De foto's zijn mogelijk te groot voor lokale opslag.");
@@ -367,7 +366,8 @@ function restoreForm(data) {
   saveStatus.textContent = "Lokaal geladen";
 }
 
-function saveForm() {
+async function saveForm() {
+  await compressCurrentPhotos();
   const data = formToObject();
   const inspections = loadInspections();
   const now = new Date().toISOString();
@@ -392,7 +392,6 @@ function saveForm() {
 
   try {
     saveInspections(inspections);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
     console.warn("Formulier kon niet lokaal worden opgeslagen.", error);
     alert("Opslaan is mislukt. De foto's zijn mogelijk te groot voor lokale opslag. Probeer kleinere foto's of exporteer direct naar JSON.");
@@ -484,7 +483,7 @@ function restorePhoto(key, previewSelector, value) {
   }
 }
 
-function resizePhoto(file, maxSize = 1600, quality = 0.82) {
+function resizePhoto(file, maxSize = 900, quality = 0.65) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -512,6 +511,43 @@ function resizePhoto(file, maxSize = 1600, quality = 0.82) {
   });
 }
 
+function compressPhotoDataUrl(dataUrl, maxSize = 900, quality = 0.65) {
+  if (!dataUrl) return Promise.resolve(null);
+
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.addEventListener("load", () => {
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    });
+
+    image.addEventListener("error", reject);
+    image.src = dataUrl;
+  });
+}
+
+async function compressCurrentPhotos() {
+  photoData.photo1 = await compressPhotoDataUrl(photoData.photo1);
+  photoData.photo2 = await compressPhotoDataUrl(photoData.photo2);
+  restorePhoto("photo1", "#preview1", photoData.photo1);
+  restorePhoto("photo2", "#preview2", photoData.photo2);
+}
+
+async function compressDataPhotos(data) {
+  data.fotos ??= {};
+  data.fotos.photo1 = await compressPhotoDataUrl(data.fotos.photo1);
+  data.fotos.photo2 = await compressPhotoDataUrl(data.fotos.photo2);
+  return data;
+}
+
 function setupPhotoInput(inputSelector, previewSelector, key) {
   const input = document.querySelector(inputSelector);
   const preview = document.querySelector(previewSelector);
@@ -536,7 +572,7 @@ function setupPhotoInput(inputSelector, previewSelector, key) {
 setupPhotoInput("#photo1", "#preview1", "photo1");
 setupPhotoInput("#photo2", "#preview2", "photo2");
 
-function loadImportedData(data) {
+async function loadImportedData(data) {
   if (!data || typeof data !== "object") {
     throw new Error("Ongeldig JSON-bestand.");
   }
@@ -546,7 +582,7 @@ function loadImportedData(data) {
   restoreForm(data);
 
   try {
-    const importedData = formToObject();
+    const importedData = await compressDataPhotos(formToObject());
     const inspections = loadInspections();
     inspections.push({
       id: currentInspectionId,
@@ -555,7 +591,6 @@ function loadImportedData(data) {
       data: importedData
     });
     saveInspections(inspections);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(importedData));
   } catch (error) {
     console.warn("Geïmporteerd formulier kon niet lokaal worden opgeslagen.", error);
     alert("JSON is geïmporteerd, maar lokaal opslaan is mislukt. De foto's zijn mogelijk te groot.");
@@ -573,9 +608,9 @@ importFile.addEventListener("change", () => {
 
   const reader = new FileReader();
 
-  reader.addEventListener("load", () => {
+  reader.addEventListener("load", async () => {
     try {
-      loadImportedData(JSON.parse(reader.result));
+      await loadImportedData(JSON.parse(reader.result));
     } catch (error) {
       console.warn("JSON kon niet worden geïmporteerd.", error);
       alert("Dit JSON-bestand kon niet worden geïmporteerd. Controleer of het uit deze app komt.");
@@ -799,5 +834,9 @@ if ("serviceWorker" in navigator) {
 renderInspectionList();
 
 if (!migrateSingleSavedInspection()) {
+  if (loadInspections().length) {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
   resetCurrentForm(loadInspections().length ? "Kies een onderzoek of start nieuw" : "Nog niet opgeslagen");
 }
