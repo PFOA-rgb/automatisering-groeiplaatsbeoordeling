@@ -685,7 +685,7 @@ function createReportHtml(data) {
     th { width: 34%; background: #e8efe3; }
     .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     figure { margin: 0; break-inside: avoid; page-break-inside: avoid; }
-    img { width: 100%; max-height: 135px; object-fit: contain; border: 1px solid #ccd5c6; }
+    img { width: 100%; max-height: 260px; object-fit: contain; border: 1px solid #ccd5c6; }
     figcaption { margin-top: 4px; color: #667060; }
     @media print {
       body { margin: 0; }
