@@ -681,12 +681,16 @@ function createReportHtml(data) {
     .subtitle { color: #667060; margin: 4px 0 0; }
     .report-page:not(:last-child) { break-after: page; page-break-after: always; }
     section { break-inside: avoid; page-break-inside: avoid; margin-top: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .report-layout { display: grid; grid-template-columns: minmax(0, 1fr) 38%; gap: 12px; align-items: start; }
+    .report-main { min-width: 0; }
+    .report-photos { break-inside: avoid; page-break-inside: avoid; }
+    table { width: auto; max-width: 100%; border-collapse: collapse; margin-top: 6px; }
     th, td { border: 1px solid #ccd5c6; padding: 3px 5px; text-align: left; vertical-align: top; }
-    th { width: 34%; background: #e8efe3; }
-    .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    th { width: 1%; white-space: nowrap; background: #e8efe3; }
+    td { min-width: 130px; }
+    .photo-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
     figure { margin: 0; break-inside: avoid; page-break-inside: avoid; }
-    img { width: 100%; max-height: 260px; object-fit: contain; border: 1px solid #ccd5c6; }
+    img { width: 100%; max-height: 235px; object-fit: contain; border: 1px solid #ccd5c6; }
     figcaption { margin-top: 4px; color: #667060; }
     @media print {
       body { margin: 0; }
@@ -699,6 +703,8 @@ function createReportHtml(data) {
   <h1>${escapeHtml(reportName)}</h1>
   <p class="subtitle">Rapport gegenereerd op ${escapeHtml(new Date().toLocaleString("nl-NL"))}</p>
 
+  <div class="report-layout">
+  <div class="report-main">
   <section>
     <h2>Algemene gegevens</h2>
     <table>
@@ -743,10 +749,14 @@ function createReportHtml(data) {
     </table>
   </section>
 
-  <section>
-    <h2>Foto's</h2>
-    <div class="photo-grid">${photos}</div>
-  </section>
+  </div>
+  <aside class="report-photos">
+    <section>
+      <h2>Foto's</h2>
+      <div class="photo-grid">${photos}</div>
+    </section>
+  </aside>
+  </div>
 
   </div>
 
@@ -771,13 +781,19 @@ function createReportHtml(data) {
   </section>
 
   <section>
+    <h2>Eindconclusie</h2>
+    <table>
+      ${reportRow("Eindconclusie", data.eindconclusie)}
+    </table>
+  </section>
+
+  <section>
     <h2>Advies</h2>
     <table>
       ${reportRow("Aanbevolen boomsoort(en)", data.boomsoorten)}
       ${reportRow("Benodigde plantvakafmetingen", data.plantvakafmetingen)}
       ${reportRow("Maatregelen", data.maatregelen)}
       ${reportRow("Advies / uitwerking", data.advies)}
-      ${reportRow("Eindconclusie", data.eindconclusie)}
     </table>
   </section>
   </div>
