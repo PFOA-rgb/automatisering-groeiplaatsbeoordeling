@@ -35,6 +35,20 @@
       </div>
     </section>
 
+    <section class="current-actions" aria-label="Acties huidig onderzoek">
+      <div>
+        <h2>Acties huidig onderzoek</h2>
+        <p>Opslaan, importeren, exporteren of een rapport maken.</p>
+      </div>
+      <div class="actions">
+        <button type="button" id="saveButton">Lokaal opslaan</button>
+        <button type="button" id="reportButton" class="secondary">Maak rapport / PDF</button>
+        <button type="button" id="exportButton" class="secondary">Exporteer JSON</button>
+        <label class="button-like secondary" for="importFile">Importeer JSON</label>
+        <input id="importFile" class="visually-hidden" type="file" accept="application/json,.json">
+      </div>
+    </section>
+
     <nav class="steps" aria-label="Formulierstappen">
       <button type="button" class="step active" data-step="1">1. Algemeen</button>
       <button type="button" class="step" data-step="2">2. Onderzoek</button>
@@ -214,14 +228,6 @@
         <label>Advies / uitwerking<textarea name="advies" rows="5"></textarea></label>
         <label>Eindconclusie<textarea name="eindconclusie" rows="5"></textarea></label>
 
-        <div class="actions">
-          <button type="button" id="saveButton">Lokaal opslaan</button>
-          <button type="button" id="exportButton" class="secondary">Exporteer JSON</button>
-          <button type="button" id="reportButton" class="secondary">Maak rapport / PDF</button>
-          <label class="button-like secondary" for="importFile">Importeer JSON</label>
-          <input id="importFile" class="visually-hidden" type="file" accept="application/json,.json">
-          <button type="reset" id="resetButton" class="danger">Nieuw formulier</button>
-        </div>
       </section>
 
       <div class="form-navigation">

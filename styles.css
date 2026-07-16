@@ -95,7 +95,8 @@ button.danger {
   margin: 1rem auto 4rem;
 }
 
-.inspection-manager {
+.inspection-manager,
+.current-actions {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
@@ -106,11 +107,13 @@ button.danger {
   box-shadow: var(--shadow);
 }
 
-.inspection-manager h2 {
+.inspection-manager h2,
+.current-actions h2 {
   margin: 0;
 }
 
-.inspection-manager p {
+.inspection-manager p,
+.current-actions p {
   margin: 0.25rem 0 0;
   color: var(--muted);
 }
@@ -354,6 +357,10 @@ td select {
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1.5rem;
+}
+
+.current-actions .actions {
+  margin-top: 0;
 }
 
 .visually-hidden {

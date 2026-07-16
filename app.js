@@ -423,20 +423,6 @@ deleteInspectionButton.addEventListener("click", () => deleteInspection(inspecti
 form.addEventListener("input", markUnsaved);
 form.addEventListener("change", markUnsaved);
 
-document.querySelector("#resetButton").addEventListener("click", event => {
-  const confirmed = window.confirm(
-    "Weet je zeker dat je een nieuw formulier wilt starten?"
-  );
-
-  if (!confirmed) {
-    event.preventDefault();
-    return;
-  }
-
-  localStorage.removeItem(STORAGE_KEY);
-
-  setTimeout(() => resetCurrentForm("Nieuw formulier"));
-});
 
 document.querySelector("#gpsButton").addEventListener("click", () => {
   const button = document.querySelector("#gpsButton");
