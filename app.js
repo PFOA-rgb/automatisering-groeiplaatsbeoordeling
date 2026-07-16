@@ -813,10 +813,11 @@ function openReport() {
   reportWindow.document.open();
   reportWindow.document.write(createReportHtml(data));
   reportWindow.document.close();
-  reportWindow.addEventListener("load", () => {
+
+  window.setTimeout(() => {
     reportWindow.focus();
     reportWindow.print();
-  });
+  }, 500);
 }
 
 document.querySelector("#reportButton").addEventListener("click", openReport);
