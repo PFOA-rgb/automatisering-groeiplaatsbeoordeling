@@ -247,7 +247,10 @@ function showStep(step) {
   previousButton.disabled = currentStep === 1;
   nextButton.hidden = currentStep === 5;
 
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  document.querySelector(".steps").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
 }
 
 stepButtons.forEach(button => {
