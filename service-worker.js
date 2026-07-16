@@ -1,4 +1,4 @@
-const CACHE_NAME = "groeiplaats-pwa-v16";
+const CACHE_NAME = "groeiplaats-pwa-v17";
 
 const ASSETS = [
   "./",
