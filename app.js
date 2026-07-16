@@ -627,6 +627,16 @@ importFile.addEventListener("change", () => {
   reader.readAsText(file);
 });
 
+function createExportBaseName(data) {
+  const project = data.project?.toString().trim() || "Project";
+  const plantplaatsnummer = data.plantplaatsnummer?.toString().trim() || "Plantplaats";
+
+  return `${project}_Groeiplaatsbeoordeling_${plantplaatsnummer}`
+    .replace(/[^a-z0-9-_]+/gi, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -666,11 +676,13 @@ function createReportHtml(data) {
       </figure>
     `).join("") || "<p>Geen foto's toegevoegd.</p>";
 
+  const reportName = createExportBaseName(data);
+
   return `<!doctype html>
 <html lang="nl">
 <head>
   <meta charset="utf-8">
-  <title>Groeiplaatsbeoordeling rapport</title>
+  <title>${escapeHtml(reportName)}</title>
   <style>
     @page { size: A4; margin: 10mm; }
     body { font-family: Arial, sans-serif; margin: 24px; color: #1f2a1a; font-size: 12px; }
@@ -695,7 +707,7 @@ function createReportHtml(data) {
 </head>
 <body>
   <div class="report-page">
-  <h1>Groeiplaatsbeoordeling</h1>
+  <h1>${escapeHtml(reportName)}</h1>
   <p class="subtitle">Rapport gegenereerd op ${escapeHtml(new Date().toLocaleString("nl-NL"))}</p>
 
   <section>
@@ -750,7 +762,7 @@ function createReportHtml(data) {
   </div>
 
   <div class="report-page">
-  <h1>Groeiplaatsbeoordeling</h1>
+  <h1>${escapeHtml(reportName)}</h1>
   <p class="subtitle">Toetsing en advies</p>
 
   <section>
@@ -785,7 +797,8 @@ function createReportHtml(data) {
 }
 
 function openReport() {
-  const reportWindow = window.open("", "_blank");
+  const data = formToObject();
+  const reportWindow = window.open("", createExportBaseName(data));
 
   if (!reportWindow) {
     alert("Het rapport kon niet worden geopend. Sta pop-ups toe voor deze app en probeer opnieuw.");
@@ -793,7 +806,7 @@ function openReport() {
   }
 
   reportWindow.document.open();
-  reportWindow.document.write(createReportHtml(formToObject()));
+  reportWindow.document.write(createReportHtml(data));
   reportWindow.document.close();
   reportWindow.addEventListener("load", () => {
     reportWindow.focus();
@@ -806,10 +819,7 @@ document.querySelector("#reportButton").addEventListener("click", openReport);
 document.querySelector("#exportButton").addEventListener("click", () => {
   const data = formToObject();
 
-  const safeName = (data.plantplaatsnummer || data.project || "groeiplaats")
-    .toString()
-    .trim()
-    .replace(/[^a-z0-9-_]+/gi, "_");
+  const safeName = createExportBaseName(data);
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json"
