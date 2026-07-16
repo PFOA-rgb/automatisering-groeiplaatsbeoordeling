@@ -785,167 +785,7 @@ function createReportHtml(data) {
 </html>`;
 }
 
-function createImprovedReportHtml(data) {
-  const reportName = createExportBaseName(data);
-  const measures = Array.isArray(data.maatregelen) && data.maatregelen.length
-    ? data.maatregelen.map(measure => `<span class="badge">${escapeHtml(measure)}</span>`).join("")
-    : `<span class="muted">Geen maatregelen ingevuld</span>`;
-  const layers = data.bodemlagen?.length
-    ? data.bodemlagen.map(layer => `
-      <tr>
-        <td>${escapeHtml(layer.from || "-")}</td>
-        <td>${escapeHtml(layer.to || "-")}</td>
-        <td>${escapeHtml(layer.type || "-")}</td>
-        <td>${escapeHtml(layer.note || "-")}</td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="4">Geen bodemlagen ingevuld</td></tr>`;
-  const photos = [data.fotos?.photo1, data.fotos?.photo2]
-    .filter(Boolean)
-    .map((src, index) => `
-      <figure class="photo-card">
-        <img src="${src}" alt="Situatiefoto ${index + 1}">
-        <figcaption>Situatiefoto ${index + 1}</figcaption>
-      </figure>
-    `).join("") || `<p class="muted">Geen foto's toegevoegd.</p>`;
-
-  return `<!doctype html>
-<html lang="nl">
-<head>
-  <meta charset="utf-8">
-  <title>${escapeHtml(reportName)}</title>
-  <style>
-    @page { size: A4; margin: 9mm; }
-    * { box-sizing: border-box; }
-    body { margin: 0; color: #1f2a1a; font: 12px Arial, sans-serif; background: white; }
-    h1, h2, h3, p { margin: 0; }
-    .page { min-height: 279mm; padding: 0; break-after: page; page-break-after: always; display: flex; flex-direction: column; }
-    .page:last-child { break-after: auto; page-break-after: auto; }
-    .hero { padding: 14mm 12mm 10mm; background: #355021; color: white; }
-    .hero small { display: block; margin-bottom: 4px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.08em; }
-    .hero h1 { font-size: 25px; line-height: 1.15; }
-    .hero .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
-    .hero .meta div { padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.12); }
-    .hero .meta span { display: block; opacity: 0.75; font-size: 10px; }
-    .content { flex: 1; padding: 9mm 12mm; }
-    .footer { display: flex; justify-content: space-between; gap: 12px; padding: 5mm 12mm; border-top: 1px solid #ccd5c6; color: #667060; font-size: 10px; }
-    .section { margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
-    .section:first-child { margin-top: 0; }
-    .section h2 { margin-bottom: 7px; padding-bottom: 4px; border-bottom: 2px solid #496b2f; color: #355021; font-size: 15px; }
-    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .card { padding: 9px; border: 1px solid #ccd5c6; border-radius: 10px; background: #fafbf9; }
-    .card span { display: block; margin-bottom: 3px; color: #667060; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .card strong { font-size: 14px; color: #355021; }
-    .conclusion { padding: 12px; border-left: 5px solid #496b2f; border-radius: 10px; background: #e8efe3; line-height: 1.45; }
-    .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .photo-card { margin: 0; padding: 7px; border: 1px solid #ccd5c6; border-radius: 10px; background: white; }
-    .photo-card img { width: 100%; height: 250px; object-fit: contain; display: block; background: #f4f6f2; }
-    .photo-card figcaption { margin-top: 5px; color: #667060; font-size: 11px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 5px 6px; border-bottom: 1px solid #dfe6da; text-align: left; vertical-align: top; }
-    th { color: #355021; background: #e8efe3; font-weight: 700; }
-    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .info { display: grid; grid-template-columns: 38% 1fr; gap: 6px; padding: 7px; border-bottom: 1px solid #dfe6da; }
-    .info b { color: #355021; }
-    .badges { display: flex; flex-wrap: wrap; gap: 6px; }
-    .badge { display: inline-block; padding: 5px 8px; border-radius: 999px; background: #e8efe3; color: #355021; font-weight: 700; }
-    .text-block { padding: 9px; border: 1px solid #ccd5c6; border-radius: 10px; min-height: 42px; line-height: 1.45; white-space: pre-wrap; }
-    .muted { color: #667060; }
-    @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-  </style>
-</head>
-<body>
-  <article class="page">
-    <header class="hero">
-      <small>Groeiplaatsbeoordeling</small>
-      <h1>${escapeHtml(reportName)}</h1>
-      <div class="meta">
-        <div><span>Project</span>${escapeHtml(formatReportValue(data.project))}</div>
-        <div><span>Plantplaats</span>${escapeHtml(formatReportValue(data.plantplaatsnummer))}</div>
-        <div><span>Locatie</span>${escapeHtml(formatReportValue(data.locatie))}</div>
-        <div><span>Datum</span>${escapeHtml(formatReportValue(data.datum))}</div>
-      </div>
-    </header>
-    <main class="content">
-      <section class="section">
-        <h2>Samenvatting</h2>
-        <div class="cards">
-          <div class="card"><span>Beoordeling</span><strong>${escapeHtml(formatReportValue(data.beoordeling))}</strong></div>
-          <div class="card"><span>Potentieel volume</span><strong>${escapeHtml(formatReportValue(data.potentieel_volume))} m³</strong></div>
-          <div class="card"><span>Geschikt voor</span><strong>${escapeHtml(formatReportValue(data.geschikt_voor))}</strong></div>
-        </div>
-      </section>
-      <section class="section">
-        <h2>Eindconclusie</h2>
-        <div class="conclusion">${escapeHtml(formatReportValue(data.eindconclusie))}</div>
-      </section>
-      <section class="section">
-        <h2>Algemene gegevens</h2>
-        <div class="info-grid">
-          <div class="info"><b>Gemeente</b><span>${escapeHtml(formatReportValue(data.gemeente))}</span></div>
-          <div class="info"><b>XY / GPS</b><span>${escapeHtml(formatReportValue(data.xy))}</span></div>
-          <div class="info"><b>Onderzoeker</b><span>${escapeHtml(formatReportValue(data.onderzoeker))}</span></div>
-          <div class="info"><b>Versie</b><span>${escapeHtml(formatReportValue(data.versie))}</span></div>
-        </div>
-      </section>
-      <section class="section">
-        <h2>Foto's onderzoekslocatie</h2>
-        <div class="photo-grid">${photos}</div>
-      </section>
-    </main>
-    <footer class="footer"><span>${escapeHtml(reportName)}</span><span>Pagina 1 van 2</span></footer>
-  </article>
-
-  <article class="page">
-    <header class="hero">
-      <small>Onderbouwing en advies</small>
-      <h1>${escapeHtml(reportName)}</h1>
-    </header>
-    <main class="content">
-      <section class="section">
-        <h2>Groeiplaatsonderzoek</h2>
-        <div class="info-grid">
-          <div class="info"><b>Maaiveld</b><span>${escapeHtml(formatReportValue(data.maaiveld))}</span></div>
-          <div class="info"><b>Bodemtype</b><span>${escapeHtml(formatReportValue(data.bodemtype))}</span></div>
-          <div class="info"><b>Verdichting</b><span>${escapeHtml(formatReportValue(data.verdichting))}</span></div>
-          <div class="info"><b>Vocht</b><span>${escapeHtml(formatReportValue(data.vocht))}</span></div>
-          <div class="info"><b>Reductie</b><span>${escapeHtml(formatReportValue(data.reductie))}</span></div>
-        </div>
-      </section>
-      <section class="section">
-        <h2>Bodemprofiel</h2>
-        <table>
-          <tr><th>Van (cm)</th><th>Tot (cm)</th><th>Bodemsoort</th><th>Opmerking</th></tr>
-          ${layers}
-        </table>
-      </section>
-      <section class="section">
-        <h2>Objecten en toetsing</h2>
-        <div class="info-grid">
-          <div class="info"><b>Bewortelbare diepte</b><span>${escapeHtml(formatReportValue(data.bewortelbare_diepte_cm))} cm / ${escapeHtml(formatReportValue(data.bewortelbare_diepte_m))} m</span></div>
-          <div class="info"><b>Grondwater</b><span>${escapeHtml(formatReportValue(data.grondwater))} cm</span></div>
-          <div class="info"><b>Storende laag</b><span>${escapeHtml(formatReportValue(data.storende_laag))} cm</span></div>
-          <div class="info"><b>Benodigd / beschikbaar</b><span>${escapeHtml(formatReportValue(data.benodigd_volume))} / ${escapeHtml(formatReportValue(data.beschikbaar_volume))} m³</span></div>
-          <div class="info"><b>Open grond</b><span>${escapeHtml(formatReportValue(data.open_grond))} m²</span></div>
-          <div class="info"><b>Boomspiegel</b><span>${escapeHtml(formatReportValue(data.boomspiegel))} m²</span></div>
-        </div>
-      </section>
-      <section class="section">
-        <h2>Advies</h2>
-        <div class="badges">${measures}</div>
-        <h3>Aanbevolen boomsoort(en)</h3>
-        <div class="text-block">${escapeHtml(formatReportValue(data.boomsoorten))}</div>
-        <h3>Advies / uitwerking</h3>
-        <div class="text-block">${escapeHtml(formatReportValue(data.advies))}</div>
-      </section>
-    </main>
-    <footer class="footer"><span>${escapeHtml(reportName)}</span><span>Pagina 2 van 2</span></footer>
-  </article>
-</body>
-</html>`;
-}
-
-function openReportWithTemplate(template) {
+function openReport() {
   const data = formToObject();
   const reportWindow = window.open("", createExportBaseName(data));
 
@@ -955,7 +795,7 @@ function openReportWithTemplate(template) {
   }
 
   reportWindow.document.open();
-  reportWindow.document.write(template(data));
+  reportWindow.document.write(createReportHtml(data));
   reportWindow.document.close();
   reportWindow.addEventListener("load", () => {
     reportWindow.focus();
@@ -963,16 +803,7 @@ function openReportWithTemplate(template) {
   });
 }
 
-function openReport() {
-  openReportWithTemplate(createReportHtml);
-}
-
-function openImprovedReport() {
-  openReportWithTemplate(createImprovedReportHtml);
-}
-
 document.querySelector("#reportButton").addEventListener("click", openReport);
-document.querySelector("#improvedReportButton").addEventListener("click", openImprovedReport);
 
 document.querySelector("#exportButton").addEventListener("click", () => {
   const data = formToObject();
