@@ -379,7 +379,17 @@ td select {
 
 @media (max-width: 720px) {
   .app-header {
-    align-items: flex-start;
+    align-items: center;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.15rem;
+  }
+
+  .subtitle {
+    display: none;
   }
 
   .grid.two,
