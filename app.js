@@ -731,11 +731,7 @@ function createReportHtml(data) {
   </section>
 
   <section>
-    <h2>Bodemprofiel</h2>
-    <table>
-      <tr><th>Van (cm)</th><th>Tot (cm)</th><th>Bodemsoort</th><th>Opmerking</th></tr>
-      ${layers}
-    </table>
+    <h2>Objecten en dieptes</h2>
     <table>
       ${reportRow("Storende laag (cm)", data.storende_laag)}
       ${reportRow("Grondwater (cm)", data.grondwater)}
@@ -746,6 +742,14 @@ function createReportHtml(data) {
       ${reportRow("Drainage (cm)", data.drainage)}
       ${reportRow("Bewortelbare diepte (cm)", data.bewortelbare_diepte_cm)}
       ${reportRow("Profielopmerking", data.profiel_opmerking)}
+    </table>
+  </section>
+
+  <section>
+    <h2>Bodemprofiel</h2>
+    <table>
+      <tr><th>Van (cm)</th><th>Tot (cm)</th><th>Bodemsoort</th><th>Opmerking</th></tr>
+      ${layers}
     </table>
   </section>
 
