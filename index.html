@@ -17,7 +17,7 @@
     </div>
     <div class="header-meta">
       <span id="saveStatus">Nog niet opgeslagen</span>
-      <span id="appVersion">v1.22</span>
+      <span id="appVersion">v1.23</span>
     </div>
   </header>
 
@@ -133,14 +133,24 @@
         <h3>Situatiefoto's</h3>
         <div class="grid two">
           <div class="photo-box">
-            <label for="photo1">Situatiefoto 1</label>
-            <input id="photo1" type="file" accept="image/*" capture="environment">
+            <strong>Situatiefoto 1</strong>
+            <div class="photo-actions">
+              <label class="button-like" for="photo1Camera">Foto maken</label>
+              <input id="photo1Camera" class="visually-hidden" type="file" accept="image/*" capture="environment">
+              <label class="button-like secondary" for="photo1File">Bestaande foto kiezen</label>
+              <input id="photo1File" class="visually-hidden" type="file" accept="image/*">
+            </div>
             <img id="preview1" alt="Voorbeeld situatiefoto 1" hidden>
             <button type="button" class="danger photo-remove" data-remove-photo="photo1" hidden>Foto verwijderen</button>
           </div>
           <div class="photo-box">
-            <label for="photo2">Situatiefoto 2</label>
-            <input id="photo2" type="file" accept="image/*" capture="environment">
+            <strong>Situatiefoto 2</strong>
+            <div class="photo-actions">
+              <label class="button-like" for="photo2Camera">Foto maken</label>
+              <input id="photo2Camera" class="visually-hidden" type="file" accept="image/*" capture="environment">
+              <label class="button-like secondary" for="photo2File">Bestaande foto kiezen</label>
+              <input id="photo2File" class="visually-hidden" type="file" accept="image/*">
+            </div>
             <img id="preview2" alt="Voorbeeld situatiefoto 2" hidden>
             <button type="button" class="danger photo-remove" data-remove-photo="photo2" hidden>Foto verwijderen</button>
           </div>

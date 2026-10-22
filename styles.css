@@ -311,6 +311,19 @@ input[type="checkbox"] {
   border-radius: 10px;
 }
 
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.photo-actions .button-like {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
 .photo-box .photo-remove {
   justify-self: start;
 }

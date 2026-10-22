@@ -72,6 +72,10 @@ function openDatabase() {
 
       request.addEventListener("success", () => resolve(request.result));
       request.addEventListener("error", () => reject(request.error));
+      request.addEventListener("blocked", () => reject(new DOMException(
+        "Een ander tabblad gebruikt nog een oudere versie van de database.",
+        "InvalidStateError"
+      )));
     });
   }
 
@@ -175,7 +179,7 @@ function clearPhotos() {
   restorePhoto("photo1", "#preview1", null);
   restorePhoto("photo2", "#preview2", null);
 
-  ["#photo1", "#photo2"].forEach(selector => {
+  ["#photo1Camera", "#photo1File", "#photo2Camera", "#photo2File"].forEach(selector => {
     document.querySelector(selector).value = "";
   });
 }
@@ -231,7 +235,7 @@ async function copyInspection(id) {
     await saveInspection(copiedInspection);
   } catch (error) {
     console.warn("Onderzoek kon niet worden gekopieerd.", error);
-    alert("Kopiëren is mislukt. De foto's zijn mogelijk te groot voor lokale opslag.");
+    showStorageError("Kopiëren", error);
     return;
   }
 
@@ -250,7 +254,13 @@ async function deleteInspection(id) {
   const confirmed = window.confirm(`Onderzoek "${inspection.title}" verwijderen?`);
   if (!confirmed) return;
 
-  await removeInspection(id);
+  try {
+    await removeInspection(id);
+  } catch (error) {
+    console.warn("Onderzoek kon niet worden verwijderd.", error);
+    showStorageError("Verwijderen", error);
+    return;
+  }
 
   if (currentInspectionId === id) {
     await resetCurrentForm("Onderzoek verwijderd");
@@ -319,6 +329,37 @@ async function requestPersistentStorage() {
   if (!navigator.storage?.persist || !navigator.storage?.persisted) return false;
   if (await navigator.storage.persisted()) return true;
   return navigator.storage.persist();
+}
+
+function getStorageErrorMessage(action, error) {
+  const errorName = error?.name || "Onbekende fout";
+
+  if (errorName === "QuotaExceededError") {
+    return `${action} is mislukt omdat de browseropslag voor deze app vol is. Exporteer belangrijke onderzoeken en verwijder oude gegevens of maak opslagruimte vrij.`;
+  }
+
+  if (["InvalidStateError", "NotAllowedError", "SecurityError"].includes(errorName)) {
+    return `${action} is mislukt omdat lokale opslag niet beschikbaar is. Gebruik geen privévenster, sluit andere tabbladen van de app en controleer of sitegegevens zijn toegestaan. (${errorName})`;
+  }
+
+  if (errorName === "AbortError") {
+    return `${action} is door de browser onderbroken. Sluit andere tabbladen van de app en probeer het opnieuw. (${errorName})`;
+  }
+
+  if (["DataCloneError", "DataError"].includes(errorName)) {
+    return `${action} is mislukt omdat een gegeven of foto niet kon worden verwerkt. (${errorName})`;
+  }
+
+  if (errorName === "UnknownError") {
+    return `${action} is mislukt door een browser- of schijffout. Start de browser opnieuw en probeer het nogmaals. (${errorName})`;
+  }
+
+  const detail = error?.message ? `: ${error.message}` : "";
+  return `${action} is mislukt (${errorName}${detail}).`;
+}
+
+function showStorageError(action, error) {
+  alert(getStorageErrorMessage(action, error));
 }
 
 function showStep(step) {
@@ -476,7 +517,7 @@ async function saveForm() {
     await saveInspection(inspection);
   } catch (error) {
     console.warn("Formulier kon niet lokaal worden opgeslagen.", error);
-    alert("Opslaan is mislukt. Controleer de beschikbare opslagruimte en probeer het opnieuw.");
+    showStorageError("Opslaan", error);
     return;
   }
 
@@ -648,21 +689,24 @@ function setupPhotoInput(inputSelector, previewSelector, key) {
   });
 }
 
-function setupPhotoRemoval(inputSelector, previewSelector, key) {
-  const input = document.querySelector(inputSelector);
+function setupPhotoRemoval(inputSelectors, previewSelector, key) {
   const button = document.querySelector(`[data-remove-photo="${key}"]`);
 
   button.addEventListener("click", () => {
-    input.value = "";
+    inputSelectors.forEach(selector => {
+      document.querySelector(selector).value = "";
+    });
     restorePhoto(key, previewSelector, null);
     markUnsaved();
   });
 }
 
-setupPhotoInput("#photo1", "#preview1", "photo1");
-setupPhotoInput("#photo2", "#preview2", "photo2");
-setupPhotoRemoval("#photo1", "#preview1", "photo1");
-setupPhotoRemoval("#photo2", "#preview2", "photo2");
+setupPhotoInput("#photo1Camera", "#preview1", "photo1");
+setupPhotoInput("#photo1File", "#preview1", "photo1");
+setupPhotoInput("#photo2Camera", "#preview2", "photo2");
+setupPhotoInput("#photo2File", "#preview2", "photo2");
+setupPhotoRemoval(["#photo1Camera", "#photo1File"], "#preview1", "photo1");
+setupPhotoRemoval(["#photo2Camera", "#photo2File"], "#preview2", "photo2");
 
 async function loadImportedData(data) {
   if (!data || typeof data !== "object") {
@@ -684,7 +728,7 @@ async function loadImportedData(data) {
     });
   } catch (error) {
     console.warn("Geïmporteerd formulier kon niet lokaal worden opgeslagen.", error);
-    alert("JSON is geïmporteerd, maar lokaal opslaan is mislukt. De foto's zijn mogelijk te groot.");
+    showStorageError("JSON importeren", error);
     return;
   }
 
@@ -971,7 +1015,7 @@ async function initializeApp() {
   } catch (error) {
     console.error("De lokale opslag kon niet worden gestart.", error);
     saveStatus.textContent = "Opslag niet beschikbaar";
-    alert("De lokale opslag kon niet worden gestart. Open de app buiten de privémodus en probeer het opnieuw.");
+    showStorageError("Lokale opslag starten", error);
   }
 }
 
