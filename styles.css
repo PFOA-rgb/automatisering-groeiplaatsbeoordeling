@@ -133,6 +133,10 @@ button.danger {
   color: var(--muted);
 }
 
+.inspection-manager .storage-status {
+  font-size: 0.85rem;
+}
+
 .manager-controls {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto auto auto auto;
@@ -290,6 +294,8 @@ input[type="checkbox"] {
 }
 
 .photo-box {
+  display: grid;
+  gap: 0.65rem;
   align-content: start;
   min-height: 180px;
   padding: 1rem;
@@ -303,6 +309,10 @@ input[type="checkbox"] {
   max-height: 260px;
   object-fit: cover;
   border-radius: 10px;
+}
+
+.photo-box .photo-remove {
+  justify-self: start;
 }
 
 .section-title {

@@ -1,5 +1,10 @@
 const STORAGE_KEY = "groeiplaats-inspectie-v1";
 const INSPECTIONS_STORAGE_KEY = "groeiplaats-inspecties-v1";
+const DATABASE_NAME = "groeiplaatsbeoordeling";
+const DATABASE_VERSION = 1;
+const INSPECTIONS_STORE = "inspections";
+const PHOTO_MAX_SIZE = 1200;
+const PHOTO_QUALITY = 0.75;
 
 const form = document.querySelector("#inspectionForm");
 const panels = [...document.querySelectorAll("[data-panel]")];
@@ -16,6 +21,7 @@ const newInspectionButton = document.querySelector("#newInspectionButton");
 const copyInspectionButton = document.querySelector("#copyInspectionButton");
 const deleteInspectionButton = document.querySelector("#deleteInspectionButton");
 const keepGeneralData = document.querySelector("#keepGeneralData");
+const storageStatus = document.querySelector("#storageStatus");
 
 let currentStep = 1;
 let currentInspectionId = null;
@@ -23,6 +29,12 @@ const photoData = {
   photo1: null,
   photo2: null
 };
+const photoPreviewUrls = {
+  photo1: null,
+  photo2: null
+};
+
+let databasePromise;
 
 const GENERAL_FIELD_NAMES = [
   "project",
@@ -46,18 +58,62 @@ function getInspectionTitle(data) {
     .join(" - ") || `Onderzoek ${new Date().toLocaleDateString("nl-NL")}`;
 }
 
-function loadInspections() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(INSPECTIONS_STORAGE_KEY));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.warn("Opgeslagen onderzoeken konden niet worden geladen.", error);
-    return [];
+function openDatabase() {
+  if (!databasePromise) {
+    databasePromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+
+      request.addEventListener("upgradeneeded", () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(INSPECTIONS_STORE)) {
+          database.createObjectStore(INSPECTIONS_STORE, { keyPath: "id" });
+        }
+      });
+
+      request.addEventListener("success", () => resolve(request.result));
+      request.addEventListener("error", () => reject(request.error));
+    });
   }
+
+  return databasePromise;
 }
 
-function saveInspections(inspections) {
-  localStorage.setItem(INSPECTIONS_STORAGE_KEY, JSON.stringify(inspections));
+async function runInspectionRequest(mode, execute) {
+  const database = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(INSPECTIONS_STORE, mode);
+    const store = transaction.objectStore(INSPECTIONS_STORE);
+    const request = execute(store);
+    let result;
+
+    request.addEventListener("success", () => {
+      result = request.result;
+      if (mode === "readonly") resolve(result);
+    });
+    request.addEventListener("error", () => reject(request.error));
+    transaction.addEventListener("complete", () => {
+      if (mode !== "readonly") resolve(result);
+    });
+    transaction.addEventListener("abort", () => reject(transaction.error));
+    transaction.addEventListener("error", () => reject(transaction.error));
+  });
+}
+
+function loadInspections() {
+  return runInspectionRequest("readonly", store => store.getAll());
+}
+
+function loadInspection(id) {
+  return runInspectionRequest("readonly", store => store.get(id));
+}
+
+function saveInspection(inspection) {
+  return runInspectionRequest("readwrite", store => store.put(inspection));
+}
+
+function removeInspection(id) {
+  return runInspectionRequest("readwrite", store => store.delete(id));
 }
 
 function collectGeneralData() {
@@ -76,11 +132,14 @@ function restoreGeneralData(values) {
 }
 
 function cloneData(data) {
-  return JSON.parse(JSON.stringify(data));
+  const photos = { ...(data.fotos || {}) };
+  const clone = JSON.parse(JSON.stringify({ ...data, fotos: undefined }));
+  clone.fotos = photos;
+  return clone;
 }
 
-function renderInspectionList() {
-  const inspections = loadInspections();
+async function renderInspectionList() {
+  const inspections = await loadInspections();
   inspectionSelect.innerHTML = "";
 
   if (!inspections.length) {
@@ -113,21 +172,15 @@ function renderInspectionList() {
 }
 
 function clearPhotos() {
-  photoData.photo1 = null;
-  photoData.photo2 = null;
+  restorePhoto("photo1", "#preview1", null);
+  restorePhoto("photo2", "#preview2", null);
 
   ["#photo1", "#photo2"].forEach(selector => {
     document.querySelector(selector).value = "";
   });
-
-  ["#preview1", "#preview2"].forEach(selector => {
-    const preview = document.querySelector(selector);
-    preview.hidden = true;
-    preview.removeAttribute("src");
-  });
 }
 
-function resetCurrentForm(message = "Nieuw onderzoek") {
+async function resetCurrentForm(message = "Nieuw onderzoek") {
   const shouldKeepGeneralData = keepGeneralData.checked;
   const preservedGeneralData = shouldKeepGeneralData ? collectGeneralData() : null;
 
@@ -145,11 +198,11 @@ function resetCurrentForm(message = "Nieuw onderzoek") {
   calculateVolume();
   showStep(1);
   saveStatus.textContent = message;
-  renderInspectionList();
+  await renderInspectionList();
 }
 
-function openInspection(id) {
-  const inspection = loadInspections().find(item => item.id === id);
+async function openInspection(id) {
+  const inspection = await loadInspection(id);
   if (!inspection) return;
 
   currentInspectionId = inspection.id;
@@ -157,14 +210,14 @@ function openInspection(id) {
   restoreForm(inspection.data);
   showStep(1);
   saveStatus.textContent = "Onderzoek geopend";
-  renderInspectionList();
+  await renderInspectionList();
 }
 
 async function copyInspection(id) {
-  const source = loadInspections().find(item => item.id === id);
+  const source = await loadInspection(id);
   if (!source) return;
 
-  const data = await compressDataPhotos(cloneData(source.data));
+  const data = cloneData(source.data);
   currentInspectionId = createInspectionId();
 
   const copiedInspection = {
@@ -174,11 +227,8 @@ async function copyInspection(id) {
     data
   };
 
-  const inspections = loadInspections();
-  inspections.push(copiedInspection);
-
   try {
-    saveInspections(inspections);
+    await saveInspection(copiedInspection);
   } catch (error) {
     console.warn("Onderzoek kon niet worden gekopieerd.", error);
     alert("Kopiëren is mislukt. De foto's zijn mogelijk te groot voor lokale opslag.");
@@ -189,48 +239,86 @@ async function copyInspection(id) {
   restoreForm(data);
   showStep(1);
   saveStatus.textContent = "Onderzoek gekopieerd";
-  renderInspectionList();
+  await renderInspectionList();
+  await updateStorageStatus();
 }
 
-function deleteInspection(id) {
-  const inspections = loadInspections();
-  const inspection = inspections.find(item => item.id === id);
+async function deleteInspection(id) {
+  const inspection = await loadInspection(id);
   if (!inspection) return;
 
   const confirmed = window.confirm(`Onderzoek "${inspection.title}" verwijderen?`);
   if (!confirmed) return;
 
-  saveInspections(inspections.filter(item => item.id !== id));
+  await removeInspection(id);
 
   if (currentInspectionId === id) {
-    resetCurrentForm("Onderzoek verwijderd");
+    await resetCurrentForm("Onderzoek verwijderd");
   } else {
-    renderInspectionList();
+    await renderInspectionList();
     saveStatus.textContent = "Onderzoek verwijderd";
   }
+
+  await updateStorageStatus();
 }
 
-function migrateSingleSavedInspection() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved || loadInspections().length) return false;
+async function migrateLegacyStorageToIndexedDb() {
+  const legacyInspections = [];
+  const savedList = localStorage.getItem(INSPECTIONS_STORAGE_KEY);
+  const savedSingle = localStorage.getItem(STORAGE_KEY);
 
-  try {
-    const data = JSON.parse(saved);
-    currentInspectionId = createInspectionId();
-    saveInspections([{
-      id: currentInspectionId,
+  const parsedList = savedList ? JSON.parse(savedList) : [];
+  if (Array.isArray(parsedList)) legacyInspections.push(...parsedList);
+
+  if (!legacyInspections.length && savedSingle) {
+    const data = JSON.parse(savedSingle);
+    legacyInspections.push({
+      id: createInspectionId(),
       title: getInspectionTitle(data),
       updatedAt: data.laatst_opgeslagen || new Date().toISOString(),
       data
-    }]);
-    restoreForm(data);
-    saveStatus.textContent = "Bestaand formulier gemigreerd";
-    renderInspectionList();
-    return true;
-  } catch (error) {
-    console.warn("Bestaand formulier kon niet worden gemigreerd.", error);
-    return false;
+    });
   }
+
+  for (const inspection of legacyInspections) {
+    inspection.data = await convertPhotosToBlobs(inspection.data);
+    await saveInspection(inspection);
+  }
+
+  if (legacyInspections.length) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(INSPECTIONS_STORAGE_KEY);
+  }
+
+  return legacyInspections.length;
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  const units = ["B", "kB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / (1024 ** unitIndex);
+  return `${value.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} ${units[unitIndex]}`;
+}
+
+async function updateStorageStatus() {
+  if (!storageStatus || !navigator.storage?.estimate) return;
+
+  try {
+    const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+    const persistent = navigator.storage.persisted
+      ? await navigator.storage.persisted()
+      : false;
+    storageStatus.textContent = `Browseropslag: ${formatBytes(usage)} gebruikt van circa ${formatBytes(quota)}${persistent ? " · permanent" : ""}`;
+  } catch (error) {
+    console.warn("Opslaggebruik kon niet worden bepaald.", error);
+  }
+}
+
+async function requestPersistentStorage() {
+  if (!navigator.storage?.persist || !navigator.storage?.persisted) return false;
+  if (await navigator.storage.persisted()) return true;
+  return navigator.storage.persist();
 }
 
 function showStep(step) {
@@ -370,9 +458,7 @@ function restoreForm(data) {
 }
 
 async function saveForm() {
-  await compressCurrentPhotos();
   const data = formToObject();
-  const inspections = loadInspections();
   const now = new Date().toISOString();
 
   if (!currentInspectionId) {
@@ -386,18 +472,11 @@ async function saveForm() {
     data
   };
 
-  const existingIndex = inspections.findIndex(item => item.id === currentInspectionId);
-  if (existingIndex >= 0) {
-    inspections[existingIndex] = inspection;
-  } else {
-    inspections.push(inspection);
-  }
-
   try {
-    saveInspections(inspections);
+    await saveInspection(inspection);
   } catch (error) {
     console.warn("Formulier kon niet lokaal worden opgeslagen.", error);
-    alert("Opslaan is mislukt. De foto's zijn mogelijk te groot voor lokale opslag. Probeer kleinere foto's of exporteer direct naar JSON.");
+    alert("Opslaan is mislukt. Controleer de beschikbare opslagruimte en probeer het opnieuw.");
     return;
   }
 
@@ -406,7 +485,8 @@ async function saveForm() {
     minute: "2-digit"
   })}`;
 
-  renderInspectionList();
+  await renderInspectionList();
+  await updateStorageStatus();
   saveStatus.textContent = savedMessage;
   alert(`${savedMessage}. Het onderzoek staat nu in deze browser opgeslagen.`);
 }
@@ -463,50 +543,32 @@ function restorePhoto(key, previewSelector, value) {
   photoData[key] = value || null;
 
   const preview = document.querySelector(previewSelector);
+  if (photoPreviewUrls[key]) {
+    URL.revokeObjectURL(photoPreviewUrls[key]);
+    photoPreviewUrls[key] = null;
+  }
+
   if (value) {
-    preview.src = value;
+    const previewUrl = value instanceof Blob ? URL.createObjectURL(value) : value;
+    if (value instanceof Blob) photoPreviewUrls[key] = previewUrl;
+    preview.src = previewUrl;
     preview.hidden = false;
   } else {
     preview.hidden = true;
     preview.removeAttribute("src");
   }
+
+  const removeButton = document.querySelector(`[data-remove-photo="${key}"]`);
+  if (removeButton) removeButton.hidden = !value;
 }
 
-function resizePhoto(file, maxSize = 900, quality = 0.65) {
+function resizePhoto(file, maxSize = PHOTO_MAX_SIZE, quality = PHOTO_QUALITY) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.addEventListener("load", () => {
-      const image = new Image();
-
-      image.addEventListener("load", () => {
-        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(image.width * scale);
-        canvas.height = Math.round(image.height * scale);
-
-        const context = canvas.getContext("2d");
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      });
-
-      image.addEventListener("error", reject);
-      image.src = reader.result;
-    });
-
-    reader.addEventListener("error", reject);
-    reader.readAsDataURL(file);
-  });
-}
-
-function compressPhotoDataUrl(dataUrl, maxSize = 900, quality = 0.65) {
-  if (!dataUrl) return Promise.resolve(null);
-
-  return new Promise((resolve, reject) => {
+    const sourceUrl = URL.createObjectURL(file);
     const image = new Image();
 
     image.addEventListener("load", () => {
+      URL.revokeObjectURL(sourceUrl);
       const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(image.width * scale);
@@ -515,41 +577,69 @@ function compressPhotoDataUrl(dataUrl, maxSize = 900, quality = 0.65) {
       const context = canvas.getContext("2d");
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      canvas.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error("De foto kon niet naar JPEG worden omgezet."));
+      }, "image/jpeg", quality);
     });
 
-    image.addEventListener("error", reject);
-    image.src = dataUrl;
+    image.addEventListener("error", error => {
+      URL.revokeObjectURL(sourceUrl);
+      reject(error);
+    });
+    image.src = sourceUrl;
   });
 }
 
-async function compressCurrentPhotos() {
-  photoData.photo1 = await compressPhotoDataUrl(photoData.photo1);
-  photoData.photo2 = await compressPhotoDataUrl(photoData.photo2);
-  restorePhoto("photo1", "#preview1", photoData.photo1);
-  restorePhoto("photo2", "#preview2", photoData.photo2);
+function dataUrlToBlob(dataUrl) {
+  return fetch(dataUrl).then(response => response.blob());
 }
 
-async function compressDataPhotos(data) {
-  data.fotos ??= {};
-  data.fotos.photo1 = await compressPhotoDataUrl(data.fotos.photo1);
-  data.fotos.photo2 = await compressPhotoDataUrl(data.fotos.photo2);
-  return data;
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function convertPhotosToBlobs(data) {
+  const converted = cloneData(data);
+  converted.fotos ??= {};
+
+  for (const key of ["photo1", "photo2"]) {
+    const photo = converted.fotos[key];
+    converted.fotos[key] = typeof photo === "string" && photo
+      ? await dataUrlToBlob(photo)
+      : photo || null;
+  }
+
+  return converted;
+}
+
+async function convertPhotosToDataUrls(data) {
+  const converted = cloneData(data);
+  converted.fotos ??= {};
+
+  for (const key of ["photo1", "photo2"]) {
+    const photo = converted.fotos[key];
+    converted.fotos[key] = photo instanceof Blob ? await blobToDataUrl(photo) : photo || null;
+  }
+
+  return converted;
 }
 
 function setupPhotoInput(inputSelector, previewSelector, key) {
   const input = document.querySelector(inputSelector);
-  const preview = document.querySelector(previewSelector);
 
   input.addEventListener("change", async () => {
     const file = input.files?.[0];
     if (!file) return;
 
     try {
-      const dataUrl = await resizePhoto(file);
-      photoData[key] = dataUrl;
-      preview.src = dataUrl;
-      preview.hidden = false;
+      const photoBlob = await resizePhoto(file);
+      restorePhoto(key, previewSelector, photoBlob);
       markUnsaved();
     } catch (error) {
       console.warn("Foto kon niet worden verwerkt.", error);
@@ -558,28 +648,40 @@ function setupPhotoInput(inputSelector, previewSelector, key) {
   });
 }
 
+function setupPhotoRemoval(inputSelector, previewSelector, key) {
+  const input = document.querySelector(inputSelector);
+  const button = document.querySelector(`[data-remove-photo="${key}"]`);
+
+  button.addEventListener("click", () => {
+    input.value = "";
+    restorePhoto(key, previewSelector, null);
+    markUnsaved();
+  });
+}
+
 setupPhotoInput("#photo1", "#preview1", "photo1");
 setupPhotoInput("#photo2", "#preview2", "photo2");
+setupPhotoRemoval("#photo1", "#preview1", "photo1");
+setupPhotoRemoval("#photo2", "#preview2", "photo2");
 
 async function loadImportedData(data) {
   if (!data || typeof data !== "object") {
     throw new Error("Ongeldig JSON-bestand.");
   }
 
+  const importedData = await convertPhotosToBlobs(data);
   currentInspectionId = createInspectionId();
   form.reset();
-  restoreForm(data);
+  restoreForm(importedData);
 
   try {
-    const importedData = await compressDataPhotos(formToObject());
-    const inspections = loadInspections();
-    inspections.push({
+    const restoredData = formToObject();
+    await saveInspection({
       id: currentInspectionId,
-      title: getInspectionTitle(importedData),
+      title: getInspectionTitle(restoredData),
       updatedAt: new Date().toISOString(),
-      data: importedData
+      data: restoredData
     });
-    saveInspections(inspections);
   } catch (error) {
     console.warn("Geïmporteerd formulier kon niet lokaal worden opgeslagen.", error);
     alert("JSON is geïmporteerd, maar lokaal opslaan is mislukt. De foto's zijn mogelijk te groot.");
@@ -587,7 +689,8 @@ async function loadImportedData(data) {
   }
 
   showStep(1);
-  renderInspectionList();
+  await renderInspectionList();
+  await updateStorageStatus();
   saveStatus.textContent = "JSON geïmporteerd en lokaal opgeslagen";
 }
 
@@ -656,8 +759,8 @@ function createReportHtml(data) {
     `).join("")
     : `<tr><td colspan="4">Geen bodemlagen ingevuld</td></tr>`;
 
-  const photos = [data.fotos?.photo1, data.fotos?.photo2]
-    .filter(Boolean)
+  const photoSources = [data.fotos?.photo1, data.fotos?.photo2].filter(Boolean);
+  const photos = photoSources
     .map((src, index) => `
       <figure>
         <img src="${src}" alt="Situatiefoto ${index + 1}">
@@ -805,15 +908,16 @@ function createReportHtml(data) {
 </html>`;
 }
 
-function openReport() {
-  const data = formToObject();
-  const reportWindow = window.open("", createExportBaseName(data));
+async function openReport() {
+  const rawData = formToObject();
+  const reportWindow = window.open("", createExportBaseName(rawData));
 
   if (!reportWindow) {
     alert("Het rapport kon niet worden geopend. Sta pop-ups toe voor deze app en probeer opnieuw.");
     return;
   }
 
+  const data = await convertPhotosToDataUrls(rawData);
   reportWindow.document.open();
   reportWindow.document.write(createReportHtml(data));
   reportWindow.document.close();
@@ -826,8 +930,8 @@ function openReport() {
 
 document.querySelector("#reportButton").addEventListener("click", openReport);
 
-document.querySelector("#exportButton").addEventListener("click", () => {
-  const data = formToObject();
+document.querySelector("#exportButton").addEventListener("click", async () => {
+  const data = await convertPhotosToDataUrls(formToObject());
 
   const safeName = createExportBaseName(data);
 
@@ -851,12 +955,24 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-renderInspectionList();
+async function initializeApp() {
+  try {
+    const migratedCount = await migrateLegacyStorageToIndexedDb();
+    await requestPersistentStorage();
+    const inspections = await loadInspections();
+    const message = migratedCount
+      ? `${migratedCount} bestaand${migratedCount === 1 ? " onderzoek" : "e onderzoeken"} gemigreerd`
+      : inspections.length
+        ? "Kies een onderzoek of start nieuw"
+        : "Nog niet opgeslagen";
 
-if (!migrateSingleSavedInspection()) {
-  if (loadInspections().length) {
-    localStorage.removeItem(STORAGE_KEY);
+    await resetCurrentForm(message);
+    await updateStorageStatus();
+  } catch (error) {
+    console.error("De lokale opslag kon niet worden gestart.", error);
+    saveStatus.textContent = "Opslag niet beschikbaar";
+    alert("De lokale opslag kon niet worden gestart. Open de app buiten de privémodus en probeer het opnieuw.");
   }
-
-  resetCurrentForm(loadInspections().length ? "Kies een onderzoek of start nieuw" : "Nog niet opgeslagen");
 }
+
+initializeApp();

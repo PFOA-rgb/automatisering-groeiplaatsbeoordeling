@@ -35,6 +35,7 @@ Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Androi
 - formulier in vijf stappen;
 - GPS ophalen;
 - foto's maken en vooraf bekijken;
+- afzonderlijke foto's vervangen of verwijderen;
 - bodemlagen toevoegen;
 - volume automatisch berekenen;
 - meerdere onderzoeken lokaal opslaan, openen, kopiëren en verwijderen in de browser;
@@ -44,4 +45,6 @@ Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Androi
 - printbaar rapport maken en opslaan als PDF via de browser;
 - basis voor offline gebruik.
 
-Foto's worden verkleind opgeslagen in de browser en meegenomen in de JSON-export. PDF-export, handtekening en centrale synchronisatie kunnen later worden toegevoegd.
+Foto's worden eenmalig verkleind tot maximaal 1200 pixels en als JPEG met 75% kwaliteit opgeslagen. Onderzoeken en foto's staan in IndexedDB, waardoor aanzienlijk meer lokale opslag beschikbaar is dan met `localStorage`. Bestaande onderzoeken worden automatisch gemigreerd. De app toont het geschatte opslaggebruik en vraagt waar mogelijk permanente browseropslag aan.
+
+Bij JSON-export worden foto's tijdelijk als Base64 in het exportbestand opgenomen. De bestaande rapportindeling met twee foto's in de rechterkolom blijft behouden. Centrale synchronisatie kan later worden toegevoegd.

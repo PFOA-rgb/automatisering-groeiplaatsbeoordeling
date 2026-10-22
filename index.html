@@ -17,7 +17,7 @@
     </div>
     <div class="header-meta">
       <span id="saveStatus">Nog niet opgeslagen</span>
-      <span id="appVersion">v1.21</span>
+      <span id="appVersion">v1.22</span>
     </div>
   </header>
 
@@ -26,6 +26,7 @@
       <div>
         <h2>Mijn onderzoeken</h2>
         <p>Kies een lokaal opgeslagen onderzoek of start een nieuw onderzoek.</p>
+        <p id="storageStatus" class="storage-status">Browseropslag wordt bepaald…</p>
       </div>
       <div class="manager-controls">
         <select id="inspectionSelect" aria-label="Opgeslagen onderzoeken">
@@ -131,14 +132,18 @@
 
         <h3>Situatiefoto's</h3>
         <div class="grid two">
-          <label class="photo-box">Situatiefoto 1
+          <div class="photo-box">
+            <label for="photo1">Situatiefoto 1</label>
             <input id="photo1" type="file" accept="image/*" capture="environment">
             <img id="preview1" alt="Voorbeeld situatiefoto 1" hidden>
-          </label>
-          <label class="photo-box">Situatiefoto 2
+            <button type="button" class="danger photo-remove" data-remove-photo="photo1" hidden>Foto verwijderen</button>
+          </div>
+          <div class="photo-box">
+            <label for="photo2">Situatiefoto 2</label>
             <input id="photo2" type="file" accept="image/*" capture="environment">
             <img id="preview2" alt="Voorbeeld situatiefoto 2" hidden>
-          </label>
+            <button type="button" class="danger photo-remove" data-remove-photo="photo2" hidden>Foto verwijderen</button>
+          </div>
         </div>
       </section>
 
