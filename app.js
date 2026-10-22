@@ -444,6 +444,51 @@ document.querySelector("#bewortelbareDiepteCm").addEventListener("input", event 
   calculateVolume();
 });
 
+function toSafeFilePart(value, fallback) {
+  const safeValue = String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-_]+/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return safeValue || fallback;
+}
+
+function createPhotoFileName(data, number) {
+  const plantplaatsnummer = toSafeFilePart(data.plantplaatsnummer, "onbekende-plantplaats");
+  const date = toSafeFilePart(data.datum, "onbekende-datum");
+  return `${plantplaatsnummer}_${date}_situatiefoto-${number}.jpg`;
+}
+
+function updatePhotoName(key) {
+  const label = document.querySelector(`[data-photo-name="${key}"]`);
+  if (!label) return;
+
+  if (!photoData[key]) {
+    label.hidden = true;
+    label.textContent = "";
+    return;
+  }
+
+  const number = key === "photo1" ? 1 : 2;
+  label.textContent = createPhotoFileName({
+    plantplaatsnummer: form.elements.plantplaatsnummer.value,
+    datum: form.elements.datum.value
+  }, number);
+  label.hidden = false;
+}
+
+function updateAllPhotoNames() {
+  updatePhotoName("photo1");
+  updatePhotoName("photo2");
+}
+
+[form.elements.plantplaatsnummer, form.elements.datum].forEach(field => {
+  field.addEventListener("input", updateAllPhotoNames);
+});
+
 function formToObject() {
   const data = new FormData(form);
   const result = {};
@@ -459,6 +504,10 @@ function formToObject() {
 
   result.bodemlagen = collectLayers();
   result.fotos = { ...photoData };
+  result.foto_bestandsnamen = {
+    photo1: photoData.photo1 ? createPhotoFileName(result, 1) : null,
+    photo2: photoData.photo2 ? createPhotoFileName(result, 2) : null
+  };
   result.potentieel_volume = Number(calculateVolume().toFixed(2));
   result.laatst_opgeslagen = new Date().toISOString();
 
@@ -493,6 +542,7 @@ function restoreForm(data) {
 
   restorePhoto("photo1", "#preview1", data.fotos?.photo1);
   restorePhoto("photo2", "#preview2", data.fotos?.photo2);
+  updateAllPhotoNames();
 
   calculateVolume();
   saveStatus.textContent = "Lokaal geladen";
@@ -601,6 +651,7 @@ function restorePhoto(key, previewSelector, value) {
 
   const removeButton = document.querySelector(`[data-remove-photo="${key}"]`);
   if (removeButton) removeButton.hidden = !value;
+  updatePhotoName(key);
 }
 
 function resizePhoto(file, maxSize = PHOTO_MAX_SIZE, quality = PHOTO_QUALITY) {
@@ -803,14 +854,21 @@ function createReportHtml(data) {
     `).join("")
     : `<tr><td colspan="4">Geen bodemlagen ingevuld</td></tr>`;
 
-  const photoSources = [data.fotos?.photo1, data.fotos?.photo2].filter(Boolean);
+  const plantplaatsLabel = data.plantplaatsnummer?.toString().trim() || "onbekend";
+  const photoSources = [
+    { key: "photo1", number: 1, src: data.fotos?.photo1 },
+    { key: "photo2", number: 2, src: data.fotos?.photo2 }
+  ].filter(photo => photo.src);
   const photos = photoSources
-    .map((src, index) => `
+    .map(({ key, number, src }) => {
+      const fileName = data.foto_bestandsnamen?.[key] || createPhotoFileName(data, number);
+      return `
       <figure>
-        <img src="${src}" alt="Situatiefoto ${index + 1}">
-        <figcaption>Situatiefoto ${index + 1}</figcaption>
+        <img src="${src}" alt="Situatiefoto ${number} van plantplaats ${escapeHtml(plantplaatsLabel)}">
+        <figcaption>Plantplaats ${escapeHtml(plantplaatsLabel)} – Situatiefoto ${number}<br><small>${escapeHtml(fileName)}</small></figcaption>
       </figure>
-    `).join("") || "<p>Geen foto's toegevoegd.</p>";
+    `;
+    }).join("") || "<p>Geen foto's toegevoegd.</p>";
 
   const reportName = createExportBaseName(data);
 

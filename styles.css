@@ -324,6 +324,11 @@ input[type="checkbox"] {
   min-height: 44px;
 }
 
+.photo-name {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
 .photo-box .photo-remove {
   justify-self: start;
 }
