@@ -17,7 +17,7 @@
     </div>
     <div class="header-meta">
       <span id="saveStatus">Nog niet opgeslagen</span>
-      <span id="appVersion">v1.24</span>
+      <span id="appVersion">v1.25</span>
     </div>
   </header>
 
@@ -47,9 +47,9 @@
       <div class="actions">
         <button type="button" id="saveButton">Lokaal opslaan</button>
         <button type="button" id="reportButton" class="secondary">Maak rapport / PDF</button>
-        <button type="button" id="exportButton" class="secondary">Exporteer JSON</button>
-        <label class="button-like secondary" for="importFile">Importeer JSON</label>
-        <input id="importFile" class="visually-hidden" type="file" accept="application/json,.json">
+        <button type="button" id="exportButton" class="secondary">Exporteer ZIP</button>
+        <label class="button-like secondary" for="importFile">Importeer ZIP / JSON</label>
+        <input id="importFile" class="visually-hidden" type="file" accept="application/zip,.zip,application/json,.json">
       </div>
     </section>
 
@@ -279,6 +279,7 @@
     </tr>
   </template>
 
+  <script src="fflate.min.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

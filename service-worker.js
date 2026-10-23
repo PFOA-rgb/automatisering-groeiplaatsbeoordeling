@@ -1,9 +1,10 @@
-const CACHE_NAME = "groeiplaats-pwa-v24";
+const CACHE_NAME = "groeiplaats-pwa-v25";
 
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./fflate.min.js",
   "./app.js",
   "./manifest.webmanifest",
   "./icon-192.png",

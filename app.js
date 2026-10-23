@@ -5,6 +5,9 @@ const DATABASE_VERSION = 1;
 const INSPECTIONS_STORE = "inspections";
 const PHOTO_MAX_SIZE = 1200;
 const PHOTO_QUALITY = 0.75;
+const MAX_ZIP_IMPORT_SIZE = 25 * 1024 * 1024;
+const MAX_ZIP_PHOTO_SIZE = 10 * 1024 * 1024;
+const MAX_ZIP_JSON_SIZE = 2 * 1024 * 1024;
 
 const form = document.querySelector("#inspectionForm");
 const panels = [...document.querySelectorAll("[data-panel]")];
@@ -702,9 +705,14 @@ async function convertPhotosToBlobs(data) {
 
   for (const key of ["photo1", "photo2"]) {
     const photo = converted.fotos[key];
-    converted.fotos[key] = typeof photo === "string" && photo
-      ? await dataUrlToBlob(photo)
-      : photo || null;
+    if (typeof photo === "string" && photo) {
+      if (!photo.startsWith("data:image/")) {
+        throw new Error("De JSON verwijst naar losse foto's. Importeer het volledige ZIP-bestand.");
+      }
+      converted.fotos[key] = await dataUrlToBlob(photo);
+    } else {
+      converted.fotos[key] = photo || null;
+    }
   }
 
   return converted;
@@ -720,6 +728,98 @@ async function convertPhotosToDataUrls(data) {
   }
 
   return converted;
+}
+
+function requireZipLibrary() {
+  if (!globalThis.fflate) {
+    throw new Error("De ZIP-ondersteuning kon niet worden geladen. Vernieuw de app en probeer opnieuw.");
+  }
+
+  return globalThis.fflate;
+}
+
+async function createInspectionZip(data) {
+  const zip = requireZipLibrary();
+  const manifest = JSON.parse(JSON.stringify({ ...data, fotos: undefined }));
+  manifest.export_formaat = "groeiplaatsbeoordeling-zip-v1";
+  manifest.fotos = {};
+
+  const files = {};
+  for (const [index, key] of ["photo1", "photo2"].entries()) {
+    const photo = data.fotos?.[key];
+    if (!photo) {
+      manifest.fotos[key] = null;
+      continue;
+    }
+
+    if (!(photo instanceof Blob)) {
+      throw new Error("Een foto heeft een onverwacht formaat. Sla het onderzoek opnieuw op en probeer opnieuw.");
+    }
+
+    const fileName = data.foto_bestandsnamen?.[key] || createPhotoFileName(data, index + 1);
+    manifest.fotos[key] = fileName;
+    files[fileName] = [new Uint8Array(await photo.arrayBuffer()), { level: 0 }];
+  }
+
+  files["onderzoek.json"] = zip.strToU8(JSON.stringify(manifest, null, 2));
+  const contents = zip.zipSync(files, { level: 6 });
+  return new Blob([contents], { type: "application/zip" });
+}
+
+async function readInspectionZip(file) {
+  const zip = requireZipLibrary();
+  if (file.size > MAX_ZIP_IMPORT_SIZE) {
+    throw new Error("De ZIP is groter dan 25 MB en kan niet veilig worden geïmporteerd.");
+  }
+
+  const archiveBytes = new Uint8Array(await file.arrayBuffer());
+  const manifestEntries = zip.unzipSync(archiveBytes, {
+    filter: entry => entry.name === "onderzoek.json" && entry.originalSize <= MAX_ZIP_JSON_SIZE
+  });
+  const manifestBytes = manifestEntries["onderzoek.json"];
+
+  if (!manifestBytes) {
+    throw new Error("In deze ZIP ontbreekt onderzoek.json.");
+  }
+
+  const data = JSON.parse(zip.strFromU8(manifestBytes));
+  if (!data || typeof data !== "object") {
+    throw new Error("onderzoek.json bevat geen geldig onderzoek.");
+  }
+
+  const photoReferences = data.fotos && typeof data.fotos === "object" ? data.fotos : {};
+  const requiredNames = new Set(Object.values(photoReferences).filter(name => typeof name === "string" && name));
+  const photoEntries = zip.unzipSync(archiveBytes, {
+    filter: entry => requiredNames.has(entry.name) && entry.originalSize <= MAX_ZIP_PHOTO_SIZE
+  });
+  data.fotos = {};
+
+  for (const key of ["photo1", "photo2"]) {
+    const fileName = photoReferences[key];
+    if (!fileName) {
+      data.fotos[key] = null;
+      continue;
+    }
+
+    if (typeof fileName !== "string" || !photoEntries[fileName]) {
+      throw new Error(`Foto ${fileName || key} ontbreekt in de ZIP.`);
+    }
+
+    data.fotos[key] = new Blob([photoEntries[fileName]], { type: "image/jpeg" });
+  }
+
+  return data;
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function setupPhotoInput(inputSelector, previewSelector, key) {
@@ -759,9 +859,9 @@ setupPhotoInput("#photo2File", "#preview2", "photo2");
 setupPhotoRemoval(["#photo1Camera", "#photo1File"], "#preview1", "photo1");
 setupPhotoRemoval(["#photo2Camera", "#photo2File"], "#preview2", "photo2");
 
-async function loadImportedData(data) {
+async function loadImportedData(data, sourceLabel = "Bestand") {
   if (!data || typeof data !== "object") {
-    throw new Error("Ongeldig JSON-bestand.");
+    throw new Error("Ongeldig importbestand.");
   }
 
   const importedData = await convertPhotosToBlobs(data);
@@ -779,39 +879,30 @@ async function loadImportedData(data) {
     });
   } catch (error) {
     console.warn("Geïmporteerd formulier kon niet lokaal worden opgeslagen.", error);
-    showStorageError("JSON importeren", error);
+    showStorageError(`${sourceLabel} importeren`, error);
     return;
   }
 
   showStep(1);
   await renderInspectionList();
   await updateStorageStatus();
-  saveStatus.textContent = "JSON geïmporteerd en lokaal opgeslagen";
+  saveStatus.textContent = `${sourceLabel} geïmporteerd en lokaal opgeslagen`;
 }
 
-importFile.addEventListener("change", () => {
+importFile.addEventListener("change", async () => {
   const file = importFile.files?.[0];
   if (!file) return;
 
-  const reader = new FileReader();
-
-  reader.addEventListener("load", async () => {
-    try {
-      await loadImportedData(JSON.parse(reader.result));
-    } catch (error) {
-      console.warn("JSON kon niet worden geïmporteerd.", error);
-      alert("Dit JSON-bestand kon niet worden geïmporteerd. Controleer of het uit deze app komt.");
-    } finally {
-      importFile.value = "";
-    }
-  });
-
-  reader.addEventListener("error", () => {
-    alert("Het JSON-bestand kon niet worden gelezen.");
+  try {
+    const isZip = file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip";
+    const data = isZip ? await readInspectionZip(file) : JSON.parse(await file.text());
+    await loadImportedData(data, isZip ? "ZIP" : "JSON");
+  } catch (error) {
+    console.warn("Bestand kon niet worden geïmporteerd.", error);
+    alert(`Dit bestand kon niet worden geïmporteerd. ${error.message || "Controleer of het uit deze app komt."}`);
+  } finally {
     importFile.value = "";
-  });
-
-  reader.readAsText(file);
+  }
 });
 
 function createExportBaseName(data) {
@@ -1033,20 +1124,16 @@ async function openReport() {
 document.querySelector("#reportButton").addEventListener("click", openReport);
 
 document.querySelector("#exportButton").addEventListener("click", async () => {
-  const data = await convertPhotosToDataUrls(formToObject());
+  const data = formToObject();
 
-  const safeName = createExportBaseName(data);
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json"
-  });
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeName}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    const blob = await createInspectionZip(data);
+    downloadBlob(blob, `${createExportBaseName(data)}.zip`);
+    saveStatus.textContent = "ZIP geëxporteerd";
+  } catch (error) {
+    console.warn("ZIP kon niet worden gemaakt.", error);
+    alert(`De ZIP kon niet worden gemaakt. ${error.message || "Probeer het opnieuw."}`);
+  }
 });
 
 if ("serviceWorker" in navigator) {
