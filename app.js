@@ -29,6 +29,7 @@ const selectAllInspections = document.querySelector("#selectAllInspections");
 const selectionStatus = document.querySelector("#selectionStatus");
 const inspectionSelectionList = document.querySelector("#inspectionSelectionList");
 const exportSelectedButton = document.querySelector("#exportSelectedButton");
+const reportSelectedButton = document.querySelector("#reportSelectedButton");
 const deleteSelectedButton = document.querySelector("#deleteSelectedButton");
 const keepGeneralData = document.querySelector("#keepGeneralData");
 const storageStatus = document.querySelector("#storageStatus");
@@ -186,6 +187,7 @@ function updateSelectionControls() {
   selectAllInspections.checked = totalCount > 0 && selectedCount === totalCount;
   selectAllInspections.indeterminate = selectedCount > 0 && selectedCount < totalCount;
   exportSelectedButton.disabled = selectedCount === 0;
+  reportSelectedButton.disabled = selectedCount === 0;
   deleteSelectedButton.disabled = selectedCount === 0;
   selectionStatus.textContent = selectedCount === 1
     ? "1 onderzoek geselecteerd"
@@ -724,6 +726,7 @@ selectAllInspections.addEventListener("change", () => {
   updateSelectionControls();
 });
 exportSelectedButton.addEventListener("click", exportSelectedInspections);
+reportSelectedButton.addEventListener("click", openSelectedReport);
 deleteSelectedButton.addEventListener("click", deleteSelectedInspections);
 form.addEventListener("input", markUnsaved);
 form.addEventListener("change", markUnsaved);
@@ -1387,6 +1390,44 @@ function createReportHtml(data) {
 </html>`;
 }
 
+function createCombinedReportHtml(dataItems, reportTitle) {
+  const documents = dataItems.map(data => {
+    return new DOMParser().parseFromString(createReportHtml(data), "text/html");
+  });
+  const reportStyles = documents[0].querySelector("style")?.textContent || "";
+  const reportPages = documents.map(document => document.body.innerHTML).join("\n");
+
+  return `<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(reportTitle)}</title>
+  <style>${reportStyles}</style>
+</head>
+<body>
+${reportPages}
+</body>
+</html>`;
+}
+
+async function printReportWindow(reportWindow) {
+  const imagePromises = [...reportWindow.document.images].map(image => {
+    if (image.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  });
+
+  await Promise.race([
+    Promise.all(imagePromises),
+    new Promise(resolve => window.setTimeout(resolve, 5000))
+  ]);
+  await new Promise(resolve => window.setTimeout(resolve, 100));
+  reportWindow.focus();
+  reportWindow.print();
+}
+
 async function openReport() {
   const rawData = formToObject();
   const reportWindow = window.open("", createExportBaseName(rawData));
@@ -1400,11 +1441,47 @@ async function openReport() {
   reportWindow.document.open();
   reportWindow.document.write(createReportHtml(data));
   reportWindow.document.close();
+  await printReportWindow(reportWindow);
+}
 
-  window.setTimeout(() => {
-    reportWindow.focus();
-    reportWindow.print();
-  }, 500);
+async function openSelectedReport() {
+  const selectedCount = selectedInspectionIds.size;
+  if (!selectedCount) return;
+
+  const reportTitle = `Groeiplaatsbeoordelingen_${localDateStamp()}_${selectedCount}-onderzoeken`;
+  const reportWindow = window.open("", reportTitle);
+  if (!reportWindow) {
+    alert("Het verzamelrapport kon niet worden geopend. Sta pop-ups toe voor deze app en probeer opnieuw.");
+    return;
+  }
+
+  reportSelectedButton.disabled = true;
+  try {
+    const inspections = (await loadInspections())
+      .filter(inspection => selectedInspectionIds.has(inspection.id))
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    if (!inspections.length) {
+      reportWindow.close();
+      return;
+    }
+
+    const dataItems = [];
+    for (const inspection of inspections) {
+      dataItems.push(await convertPhotosToDataUrls(inspection.data));
+    }
+
+    reportWindow.document.open();
+    reportWindow.document.write(createCombinedReportHtml(dataItems, reportTitle));
+    reportWindow.document.close();
+    await printReportWindow(reportWindow);
+    saveStatus.textContent = `Rapport met ${inspections.length} onderzoeken geopend`;
+  } catch (error) {
+    reportWindow.close();
+    console.warn("Het verzamelrapport kon niet worden gemaakt.", error);
+    alert(`Het verzamelrapport kon niet worden gemaakt. ${error.message || "Probeer het opnieuw."}`);
+  } finally {
+    updateSelectionControls();
+  }
 }
 
 document.querySelector("#reportButton").addEventListener("click", openReport);
