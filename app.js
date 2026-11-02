@@ -6,8 +6,10 @@ const INSPECTIONS_STORE = "inspections";
 const PHOTO_MAX_SIZE = 1200;
 const PHOTO_QUALITY = 0.75;
 const MAX_ZIP_IMPORT_SIZE = 25 * 1024 * 1024;
+const MAX_COLLECTION_IMPORT_SIZE = 250 * 1024 * 1024;
 const MAX_ZIP_PHOTO_SIZE = 10 * 1024 * 1024;
 const MAX_ZIP_JSON_SIZE = 2 * 1024 * 1024;
+const MAX_COLLECTION_INSPECTIONS = 500;
 
 const form = document.querySelector("#inspectionForm");
 const panels = [...document.querySelectorAll("[data-panel]")];
@@ -23,11 +25,17 @@ const openInspectionButton = document.querySelector("#openInspectionButton");
 const newInspectionButton = document.querySelector("#newInspectionButton");
 const copyInspectionButton = document.querySelector("#copyInspectionButton");
 const deleteInspectionButton = document.querySelector("#deleteInspectionButton");
+const selectAllInspections = document.querySelector("#selectAllInspections");
+const selectionStatus = document.querySelector("#selectionStatus");
+const inspectionSelectionList = document.querySelector("#inspectionSelectionList");
+const exportSelectedButton = document.querySelector("#exportSelectedButton");
+const deleteSelectedButton = document.querySelector("#deleteSelectedButton");
 const keepGeneralData = document.querySelector("#keepGeneralData");
 const storageStatus = document.querySelector("#storageStatus");
 
 let currentStep = 1;
 let currentInspectionId = null;
+const selectedInspectionIds = new Set();
 const photoData = {
   photo1: null,
   photo2: null
@@ -119,8 +127,32 @@ function saveInspection(inspection) {
   return runInspectionRequest("readwrite", store => store.put(inspection));
 }
 
+async function saveInspections(inspections) {
+  const database = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(INSPECTIONS_STORE, "readwrite");
+    const store = transaction.objectStore(INSPECTIONS_STORE);
+    inspections.forEach(inspection => store.put(inspection));
+    transaction.addEventListener("complete", resolve);
+    transaction.addEventListener("abort", () => reject(transaction.error));
+    transaction.addEventListener("error", () => reject(transaction.error));
+  });
+}
+
 function removeInspection(id) {
   return runInspectionRequest("readwrite", store => store.delete(id));
+}
+
+async function removeInspections(ids) {
+  const database = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(INSPECTIONS_STORE, "readwrite");
+    const store = transaction.objectStore(INSPECTIONS_STORE);
+    ids.forEach(id => store.delete(id));
+    transaction.addEventListener("complete", resolve);
+    transaction.addEventListener("abort", () => reject(transaction.error));
+    transaction.addEventListener("error", () => reject(transaction.error));
+  });
 }
 
 function collectGeneralData() {
@@ -145,9 +177,32 @@ function cloneData(data) {
   return clone;
 }
 
+function updateSelectionControls() {
+  const checkboxes = [...inspectionSelectionList.querySelectorAll("input[type='checkbox']")];
+  const selectedCount = selectedInspectionIds.size;
+  const totalCount = checkboxes.length;
+
+  selectAllInspections.disabled = totalCount === 0;
+  selectAllInspections.checked = totalCount > 0 && selectedCount === totalCount;
+  selectAllInspections.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+  exportSelectedButton.disabled = selectedCount === 0;
+  deleteSelectedButton.disabled = selectedCount === 0;
+  selectionStatus.textContent = selectedCount === 1
+    ? "1 onderzoek geselecteerd"
+    : `${selectedCount} onderzoeken geselecteerd`;
+}
+
 async function renderInspectionList() {
-  const inspections = await loadInspections();
+  const inspections = (await loadInspections())
+    .slice()
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  const availableIds = new Set(inspections.map(inspection => inspection.id));
+  [...selectedInspectionIds].forEach(id => {
+    if (!availableIds.has(id)) selectedInspectionIds.delete(id);
+  });
+
   inspectionSelect.innerHTML = "";
+  inspectionSelectionList.innerHTML = "";
 
   if (!inspections.length) {
     const option = document.createElement("option");
@@ -158,6 +213,7 @@ async function renderInspectionList() {
     openInspectionButton.disabled = true;
     copyInspectionButton.disabled = true;
     deleteInspectionButton.disabled = true;
+    updateSelectionControls();
     return;
   }
 
@@ -166,16 +222,45 @@ async function renderInspectionList() {
   copyInspectionButton.disabled = false;
   deleteInspectionButton.disabled = false;
 
-  inspections
-    .slice()
-    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
-    .forEach(inspection => {
-      const option = document.createElement("option");
-      option.value = inspection.id;
-      option.textContent = `${inspection.title} (${new Date(inspection.updatedAt).toLocaleString("nl-NL")})`;
-      option.selected = inspection.id === currentInspectionId;
-      inspectionSelect.appendChild(option);
+  inspections.forEach(inspection => {
+    const updatedAt = new Date(inspection.updatedAt);
+    const updatedLabel = Number.isNaN(updatedAt.getTime())
+      ? "datum onbekend"
+      : updatedAt.toLocaleString("nl-NL");
+    const photoCount = [inspection.data?.fotos?.photo1, inspection.data?.fotos?.photo2].filter(Boolean).length;
+    const photoLabel = `${photoCount} foto${photoCount === 1 ? "" : "'s"}`;
+
+    const option = document.createElement("option");
+    option.value = inspection.id;
+    option.textContent = `${inspection.title} (${updatedLabel})`;
+    option.selected = inspection.id === currentInspectionId;
+    inspectionSelect.appendChild(option);
+
+    const label = document.createElement("label");
+    label.className = `inspection-selection-item${inspection.id === currentInspectionId ? " current" : ""}`;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = inspection.id;
+    checkbox.checked = selectedInspectionIds.has(inspection.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) selectedInspectionIds.add(inspection.id);
+      else selectedInspectionIds.delete(inspection.id);
+      updateSelectionControls();
     });
+
+    const text = document.createElement("span");
+    text.className = "inspection-selection-text";
+    const title = document.createElement("strong");
+    title.textContent = inspection.title;
+    const details = document.createElement("small");
+    details.textContent = `${updatedLabel} · ${photoLabel}`;
+    text.append(title, details);
+    label.append(checkbox, text);
+    inspectionSelectionList.appendChild(label);
+  });
+
+  updateSelectionControls();
 }
 
 function clearPhotos() {
@@ -272,6 +357,38 @@ async function deleteInspection(id) {
     saveStatus.textContent = "Onderzoek verwijderd";
   }
 
+  await updateStorageStatus();
+}
+
+async function deleteSelectedInspections() {
+  const inspections = (await loadInspections()).filter(inspection => selectedInspectionIds.has(inspection.id));
+  if (!inspections.length) return;
+
+  const photoCount = inspections.reduce((total, inspection) => {
+    return total + [inspection.data?.fotos?.photo1, inspection.data?.fotos?.photo2].filter(Boolean).length;
+  }, 0);
+  const confirmed = window.confirm(
+    `${inspections.length} onderzoek${inspections.length === 1 ? "" : "en"} met ${photoCount} foto${photoCount === 1 ? "" : "'s"} definitief verwijderen?\n\nMaak zo nodig eerst een ZIP-export.`
+  );
+  if (!confirmed) return;
+
+  try {
+    await removeInspections(inspections.map(inspection => inspection.id));
+  } catch (error) {
+    console.warn("De selectie kon niet worden verwijderd.", error);
+    showStorageError("Selectie verwijderen", error);
+    await renderInspectionList();
+    return;
+  }
+
+  const currentWasDeleted = selectedInspectionIds.has(currentInspectionId);
+  selectedInspectionIds.clear();
+  if (currentWasDeleted) {
+    await resetCurrentForm(`${inspections.length} onderzoeken verwijderd`);
+  } else {
+    await renderInspectionList();
+    saveStatus.textContent = `${inspections.length} onderzoeken verwijderd`;
+  }
   await updateStorageStatus();
 }
 
@@ -597,6 +714,17 @@ newInspectionButton.addEventListener("click", () => {
 });
 copyInspectionButton.addEventListener("click", () => copyInspection(inspectionSelect.value));
 deleteInspectionButton.addEventListener("click", () => deleteInspection(inspectionSelect.value));
+selectAllInspections.addEventListener("change", () => {
+  const checkboxes = [...inspectionSelectionList.querySelectorAll("input[type='checkbox']")];
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = selectAllInspections.checked;
+    if (checkbox.checked) selectedInspectionIds.add(checkbox.value);
+    else selectedInspectionIds.delete(checkbox.value);
+  });
+  updateSelectionControls();
+});
+exportSelectedButton.addEventListener("click", exportSelectedInspections);
+deleteSelectedButton.addEventListener("click", deleteSelectedInspections);
 form.addEventListener("input", markUnsaved);
 form.addEventListener("change", markUnsaved);
 
@@ -766,13 +894,8 @@ async function createInspectionZip(data) {
   return new Blob([contents], { type: "application/zip" });
 }
 
-async function readInspectionZip(file) {
+function readInspectionZipBytes(archiveBytes) {
   const zip = requireZipLibrary();
-  if (file.size > MAX_ZIP_IMPORT_SIZE) {
-    throw new Error("De ZIP is groter dan 25 MB en kan niet veilig worden geïmporteerd.");
-  }
-
-  const archiveBytes = new Uint8Array(await file.arrayBuffer());
   const manifestEntries = zip.unzipSync(archiveBytes, {
     filter: entry => entry.name === "onderzoek.json" && entry.originalSize <= MAX_ZIP_JSON_SIZE
   });
@@ -809,6 +932,134 @@ async function readInspectionZip(file) {
   }
 
   return data;
+}
+
+async function readInspectionZip(file) {
+  if (file.size > MAX_ZIP_IMPORT_SIZE) {
+    throw new Error("De ZIP is groter dan 25 MB en kan niet veilig worden geïmporteerd.");
+  }
+
+  return readInspectionZipBytes(new Uint8Array(await file.arrayBuffer()));
+}
+
+function createCollectionFileName(index, data) {
+  return `${String(index + 1).padStart(3, "0")}_${createExportBaseName(data)}.zip`;
+}
+
+async function createInspectionCollectionZip(inspections) {
+  const zip = requireZipLibrary();
+  if (inspections.length > MAX_COLLECTION_INSPECTIONS) {
+    throw new Error(`Selecteer maximaal ${MAX_COLLECTION_INSPECTIONS} onderzoeken per export.`);
+  }
+  const files = {};
+  const manifest = {
+    export_formaat: "groeiplaatsbeoordeling-verzamelzip-v1",
+    aangemaakt_op: new Date().toISOString(),
+    aantal_onderzoeken: inspections.length,
+    onderzoeken: []
+  };
+
+  for (const [index, inspection] of inspections.entries()) {
+    const data = await convertPhotosToBlobs(inspection.data);
+    const innerZip = await createInspectionZip(data);
+    const fileName = createCollectionFileName(index, data);
+    files[fileName] = [new Uint8Array(await innerZip.arrayBuffer()), { level: 0 }];
+    manifest.onderzoeken.push({
+      bestand: fileName,
+      titel: inspection.title,
+      laatst_bijgewerkt: inspection.updatedAt
+    });
+  }
+
+  files["verzamelbestand.json"] = zip.strToU8(JSON.stringify(manifest, null, 2));
+  const archive = new Blob([zip.zipSync(files, { level: 6 })], { type: "application/zip" });
+  if (archive.size > MAX_COLLECTION_IMPORT_SIZE) {
+    throw new Error("De selectie is groter dan 250 MB. Exporteer de onderzoeken in kleinere selecties.");
+  }
+  return archive;
+}
+
+function readInspectionCollectionZipBytes(archiveBytes, manifestBytes) {
+  const zip = requireZipLibrary();
+  const manifest = JSON.parse(zip.strFromU8(manifestBytes));
+  const items = Array.isArray(manifest.onderzoeken) ? manifest.onderzoeken : [];
+
+  if (manifest.export_formaat !== "groeiplaatsbeoordeling-verzamelzip-v1" || !items.length) {
+    throw new Error("Het verzamelbestand bevat geen geldige onderzoeken.");
+  }
+  if (items.length > MAX_COLLECTION_INSPECTIONS) {
+    throw new Error(`Het verzamelbestand bevat meer dan ${MAX_COLLECTION_INSPECTIONS} onderzoeken.`);
+  }
+
+  const requiredNames = new Set(items.map(item => item?.bestand).filter(name => typeof name === "string" && name));
+  if (requiredNames.size !== items.length) {
+    throw new Error("Het verzamelbestand bevat ongeldige of dubbele bestandsnamen.");
+  }
+
+  const innerEntries = zip.unzipSync(archiveBytes, {
+    filter: entry => requiredNames.has(entry.name) && entry.originalSize <= MAX_ZIP_IMPORT_SIZE
+  });
+
+  return items.map(item => {
+    const innerZip = innerEntries[item.bestand];
+    if (!innerZip) throw new Error(`${item.bestand} ontbreekt of is te groot.`);
+    return readInspectionZipBytes(innerZip);
+  });
+}
+
+async function readImportedZip(file) {
+  if (file.size > MAX_COLLECTION_IMPORT_SIZE) {
+    throw new Error("De ZIP is groter dan 250 MB en kan niet veilig worden geïmporteerd.");
+  }
+
+  const zip = requireZipLibrary();
+  const archiveBytes = new Uint8Array(await file.arrayBuffer());
+  const rootEntries = zip.unzipSync(archiveBytes, {
+    filter: entry => ["onderzoek.json", "verzamelbestand.json"].includes(entry.name)
+      && entry.originalSize <= MAX_ZIP_JSON_SIZE
+  });
+
+  if (rootEntries["verzamelbestand.json"]) {
+    return {
+      type: "collection",
+      data: readInspectionCollectionZipBytes(archiveBytes, rootEntries["verzamelbestand.json"])
+    };
+  }
+  if (file.size > MAX_ZIP_IMPORT_SIZE) {
+    throw new Error("Deze onderzoeks-ZIP is groter dan 25 MB.");
+  }
+
+  return { type: "single", data: readInspectionZipBytes(archiveBytes) };
+}
+
+function localDateStamp() {
+  const now = new Date();
+  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+}
+
+async function exportSelectedInspections() {
+  const inspections = (await loadInspections())
+    .filter(inspection => selectedInspectionIds.has(inspection.id))
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  if (!inspections.length) return;
+
+  exportSelectedButton.disabled = true;
+  try {
+    if (inspections.length === 1) {
+      const data = await convertPhotosToBlobs(inspections[0].data);
+      const blob = await createInspectionZip(data);
+      downloadBlob(blob, `${createExportBaseName(data)}.zip`);
+    } else {
+      const blob = await createInspectionCollectionZip(inspections);
+      downloadBlob(blob, `Groeiplaatsbeoordelingen_${localDateStamp()}_${inspections.length}-onderzoeken.zip`);
+    }
+    saveStatus.textContent = `${inspections.length} onderzoek${inspections.length === 1 ? "" : "en"} geëxporteerd`;
+  } catch (error) {
+    console.warn("De selectie kon niet worden geëxporteerd.", error);
+    alert(`De selectie kon niet worden geëxporteerd. ${error.message || "Probeer het opnieuw."}`);
+  } finally {
+    updateSelectionControls();
+  }
 }
 
 function downloadBlob(blob, fileName) {
@@ -889,14 +1140,49 @@ async function loadImportedData(data, sourceLabel = "Bestand") {
   saveStatus.textContent = `${sourceLabel} geïmporteerd en lokaal opgeslagen`;
 }
 
+async function loadImportedCollection(dataItems) {
+  const importedItems = [];
+  for (const data of dataItems) {
+    const importedData = await convertPhotosToBlobs(data);
+    importedItems.push({
+      id: createInspectionId(),
+      title: getInspectionTitle(importedData),
+      updatedAt: new Date().toISOString(),
+      data: importedData
+    });
+  }
+
+  try {
+    await saveInspections(importedItems);
+  } catch (error) {
+    console.warn("Het verzamelbestand kon niet lokaal worden opgeslagen.", error);
+    showStorageError("Verzamel-ZIP importeren", error);
+    return;
+  }
+
+  const first = importedItems[0];
+  currentInspectionId = first.id;
+  form.reset();
+  restoreForm(first.data);
+  showStep(1);
+  await renderInspectionList();
+  await updateStorageStatus();
+  saveStatus.textContent = `${importedItems.length} onderzoeken geïmporteerd en lokaal opgeslagen`;
+}
+
 importFile.addEventListener("change", async () => {
   const file = importFile.files?.[0];
   if (!file) return;
 
   try {
     const isZip = file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip";
-    const data = isZip ? await readInspectionZip(file) : JSON.parse(await file.text());
-    await loadImportedData(data, isZip ? "ZIP" : "JSON");
+    if (isZip) {
+      const imported = await readImportedZip(file);
+      if (imported.type === "collection") await loadImportedCollection(imported.data);
+      else await loadImportedData(imported.data, "ZIP");
+    } else {
+      await loadImportedData(JSON.parse(await file.text()), "JSON");
+    }
   } catch (error) {
     console.warn("Bestand kon niet worden geïmporteerd.", error);
     alert(`Dit bestand kon niet worden geïmporteerd. ${error.message || "Controleer of het uit deze app komt."}`);

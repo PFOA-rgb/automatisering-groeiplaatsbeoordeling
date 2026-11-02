@@ -17,7 +17,7 @@
     </div>
     <div class="header-meta">
       <span id="saveStatus">Nog niet opgeslagen</span>
-      <span id="appVersion">v1.25</span>
+      <span id="appVersion">v1.26</span>
     </div>
   </header>
 
@@ -25,7 +25,7 @@
     <section class="inspection-manager" aria-label="Mijn onderzoeken">
       <div>
         <h2>Mijn onderzoeken</h2>
-        <p>Kies een lokaal opgeslagen onderzoek of start een nieuw onderzoek.</p>
+        <p>Open één onderzoek of selecteer meerdere onderzoeken voor export of verwijdering.</p>
         <p id="storageStatus" class="storage-status">Browseropslag wordt bepaald…</p>
       </div>
       <div class="manager-controls">
@@ -35,8 +35,17 @@
         <button type="button" id="openInspectionButton" class="secondary">Laad</button>
         <button type="button" id="copyInspectionButton" class="secondary">Kopieer</button>
         <button type="button" id="newInspectionButton" class="secondary">Nieuw onderzoek</button>
-        <button type="button" id="deleteInspectionButton" class="danger">Verwijder</button>
+        <button type="button" id="deleteInspectionButton" class="danger">Verwijder gekozen</button>
       </div>
+      <div class="selection-toolbar">
+        <label><input id="selectAllInspections" type="checkbox"> Alles selecteren</label>
+        <span id="selectionStatus" aria-live="polite">0 onderzoeken geselecteerd</span>
+        <div class="selection-actions">
+          <button type="button" id="exportSelectedButton" class="secondary" disabled>Exporteer selectie</button>
+          <button type="button" id="deleteSelectedButton" class="danger" disabled>Verwijder selectie</button>
+        </div>
+      </div>
+      <div id="inspectionSelectionList" class="inspection-selection-list" aria-label="Onderzoeken selecteren"></div>
     </section>
 
     <section class="current-actions" aria-label="Acties huidig onderzoek">
