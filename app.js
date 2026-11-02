@@ -517,6 +517,7 @@ function addLayer(layer = {}) {
   row.querySelector(".layer-from").value = layer.from ?? "";
   row.querySelector(".layer-to").value = layer.to ?? "";
   row.querySelector(".layer-type").value = layer.type ?? "";
+  row.querySelector(".layer-organic-content").value = layer.organicContent ?? "";
   row.querySelector(".layer-note").value = layer.note ?? "";
 
   row.querySelector(".remove-layer").addEventListener("click", () => {
@@ -538,6 +539,7 @@ function collectLayers() {
     from: row.querySelector(".layer-from").value,
     to: row.querySelector(".layer-to").value,
     type: row.querySelector(".layer-type").value,
+    organicContent: row.querySelector(".layer-organic-content").value,
     note: row.querySelector(".layer-note").value
   }));
 }
@@ -1229,10 +1231,11 @@ function createReportHtml(data) {
         <td>${escapeHtml(layer.from)}</td>
         <td>${escapeHtml(layer.to)}</td>
         <td>${escapeHtml(layer.type)}</td>
+        <td>${escapeHtml(layer.organicContent)}</td>
         <td>${escapeHtml(layer.note)}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="4">Geen bodemlagen ingevuld</td></tr>`;
+    : `<tr><td colspan="5">Geen bodemlagen ingevuld</td></tr>`;
 
   const plantplaatsLabel = data.plantplaatsnummer?.toString().trim() || "onbekend";
   const photoSources = [
@@ -1333,7 +1336,7 @@ function createReportHtml(data) {
   <section>
     <h2>Bodemprofiel</h2>
     <table>
-      <tr><th>Van (cm)</th><th>Tot (cm)</th><th>Bodemsoort</th><th>Opmerking</th></tr>
+      <tr><th>Van (cm)</th><th>Tot (cm)</th><th>Bodemsoort</th><th>Org. gehalte</th><th>Opmerking</th></tr>
       ${layers}
     </table>
   </section>

@@ -37,7 +37,7 @@ Plaats de map op een HTTPS-webserver. Open de website daarna in Chrome op Androi
 - GPS ophalen;
 - foto's maken en vooraf bekijken;
 - afzonderlijke foto's vervangen of verwijderen;
-- bodemlagen toevoegen;
+- bodemlagen met bodemsoort en organisch gehalte toevoegen;
 - volume automatisch berekenen;
 - meerdere onderzoeken lokaal opslaan, openen, kopiëren, selecteren en verwijderen in de browser;
 - algemene gegevens optioneel behouden bij een nieuw onderzoek;
